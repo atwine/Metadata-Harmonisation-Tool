@@ -1,0 +1,43 @@
+variable_name,description,dType,Unit,Categories,Unit Example
+date,Date,datetime,YYYY-MM-DD,,2023/06/26
+time (local),Time,datetime,hh:mm:ss,,12:12:12
+dob,Birth Date,datetime,YYYY-MM-DD,,2023/06/26
+country,Country,string,ISO 3166-1 alpha-3 codes,,ZAF
+patient_id,Patient Identifier,string,,,BA112
+age_enrolment,Age-Years,integer,years,,62
+sex,Sex,string,categorical,"Male', 'Female', 'integerersex'",Female
+height,Height,float,cm,,
+weight,Body Weight,integer,kg,,52
+bmi,Body Mass Index,integer,kg/m2,,24
+substance_abuse,Substance Abuse,string,binary,"yes', 'no'",Yes
+smoking_status,Smoking Status,string,binary,"yes', 'no'",Yes
+alcohol_status,Alcohol Abuse,string,binary,"yes', 'no'",yes
+employment,Employment Status,string,binary,"yes', 'no'",yes
+education_years,Education Level,integer,years,,9
+loss_to_follow_up,Lost To Follow-Up,string,binary,"yes', 'no'",yes
+hypertension,Hypertension,string,binary,"yes', 'no'",yes
+birth_weight,Birth Weight,integer,g,,2545
+stillbirth,Stillbirth,string,binary,"yes', 'no'",yes
+apgar,Apgar Score,integer,index,,1
+death,Death Indicator,string,binary,"yes', 'no'",yes
+infant_mortality ,Infant Mortality,string,binary,"yes', 'no'",yes
+hospital_admission,Hospitalization,string,binary,"yes', 'no'",yes
+gastroenteritis ,Gastroenteritis,string,binary,"yes', 'no'",yes
+pneumonia ,Pneumonia ,string,binary,"yes', 'no'",yes
+urinary_tract_infection,Urinary Tract Infection ,string,binary,"yes', 'no'",yes
+groupb_stringep_infection ,Group B streptococcus Infection ,string,binary,"yes', 'no'",yes
+hiv_status,HIV Status,string,binary,"positive', 'negative'",positive
+tb_status,Tuberculosis,string,binary,"positive', 'negative'",positive
+haemoglobin,Hemoglobin,float,g/dL,,8.2
+creat,Creatinine,integer,μmol/L,,92
+cd4,CD4 Expressing Cell Count,integer,cells/mm3,,245
+adverse_event,Adverse Event,string,binary,"positive', 'negative'",positive
+heart_rate,Heart Rate,integer,bpm,,122
+systolic_blood_pressure,Systolic Blood Pressure,integer,mmHg,,122
+diastolic_blood_pressure,Diastolic Blood Pressure,integer,mmHg,,80
+mean_arterial_pressure,Mean Arterial Pressure,integer,mmHg,,72
+oxygen_saturation,Oxygen Saturation Measurement,integer,%,,92
+stroke,stroke,string,binary,"positive', 'negative'",positive
+myocardial_infarct,Myocardial Infarction,string,binary,"positive', 'negative'",positive
+malaria,Malaria,string,binary,"positive', 'negative'",positive
+muac,Mid-Upper Arm Circumference,integer ,cm,,18

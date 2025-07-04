@@ -22,12 +22,11 @@ mapping_options = ['To do',
         'Marked unmappable']
 
 st.set_page_config(layout="wide",
-                   page_title="Mapping Tool",
-                   page_icon="logo.png"
+                   page_title="Mapping Tool"
                    )
 
 with st.sidebar:
-    st.image('logo.png', width=200)
+
     st.write("## Mapping App")
     st.divider()
     page = st.selectbox('Page', ["About", "Upload Codebook","Upload Studies", "Initialise", "Map Studies", "Download Results"])

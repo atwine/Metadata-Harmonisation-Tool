@@ -5,16 +5,15 @@ dependencies:
 - fsspec
 - jupyterlab
 - numpy
-- openai
+- ollama
 - openpyxl
 - pandas
 - pdfminer.six
 - python-dotenv
-- python-duckdb
 - scipy
 - streamlit>=1.20
-- tiktoken
 - pip
 - pip:
-    - clevercsv
-    - tiktoken
+  - clevercsv
+  - duckdb
+  - tiktoken

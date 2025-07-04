@@ -1,15 +1,66 @@
-from openai import OpenAI # type: ignore
 import streamlit as st
 import fsspec
+import ollama
+import pandas as pd
+import ast
 
+# --- Ollama Configuration ---
+OLLAMA_HOST = "localhost"
+OLLAMA_PORT = 11434
+OLLAMA_CHAT_MODEL = 'llama3.1:8b'
+OLLAMA_EMBEDDING_MODEL = 'nomic-embed-text'
+
+# --- Filesystem ---
 fs = fsspec.filesystem("")
-def init_llm_models(config):
-    openai_client = None
-    if 'OpenAI_api_key' in list(config):
-        openai_client = OpenAI(api_key=config['OpenAI_api_key'])
-    else:
-        raise ValueError("No OpenAI API key found. Please provide an API key to proceed.")
-    return openai_client
+
+# --- Ollama Client ---
+def get_ollama_client():
+    """
+    Initializes and returns an Ollama client if connection and models are valid.
+    Caches the client in the session state. Returns None on failure.
+    """
+    if 'ollama_client' in st.session_state:
+        return st.session_state.ollama_client
+
+    try:
+        client = ollama.Client(host=f"http://{OLLAMA_HOST}:{OLLAMA_PORT}")
+        response = client.list()
+
+        # Get list of available models
+        model_list = response.models
+
+        # Ensure the model list is valid
+        if not isinstance(model_list, list) or not model_list:
+            st.session_state.ollama_client = None
+            return None
+
+        # Extract model names
+        available_models = [m.model for m in model_list]
+        
+        # Check for required models, considering version suffixes
+        chat_model_found = False
+        embedding_model_found = False
+        
+        # More flexible matching that handles version suffixes
+        for model_name in available_models:
+            # Check if model name starts with required model names
+            if model_name.startswith(OLLAMA_CHAT_MODEL):
+                chat_model_found = True
+            if model_name.startswith(OLLAMA_EMBEDDING_MODEL):
+                embedding_model_found = True
+                
+        if chat_model_found and embedding_model_found:
+            st.session_state.ollama_client = client
+            return client
+        else:
+            st.session_state.ollama_client = None
+            return None
+
+    except Exception as e:
+        # Log error for diagnostics if needed
+        print(f"Ollama connection error: {str(e)}")
+        st.session_state.ollama_client = None
+        return None
 
 def delete_files_and_folders(directory_path):
     """
@@ -18,21 +69,17 @@ def delete_files_and_folders(directory_path):
     Args:
         directory_path (str): Path to the directory to be cleared.
     """
-    files_and_dirs = fs.ls(directory_path)
-    for item in files_and_dirs:
-        if fs.isdir(item):
-            fs.rm(item, recursive=True)
-        else:
-            fs.rm(item)
+    if fs.exists(directory_path):
+        files_and_dirs = fs.ls(directory_path)
+        for item in files_and_dirs:
+            if fs.isdir(item):
+                fs.rm(item, recursive=True)
+            else:
+                fs.rm(item)
 
 def modify_env(key, value=None, delete=False):
     """
     Modify the .env file to add, update, or delete a key-value pair.
-
-    Args:
-        key (str): The environment variable key.
-        value (str, optional): The value to set for the key. Defaults to None.
-        delete (bool, optional): If True, delete the key from the .env file. Defaults to False.
     """
     if not fs.exists(".env"):
         with open(".env", 'w'):
@@ -43,11 +90,11 @@ def modify_env(key, value=None, delete=False):
         line_replaced = False
         for i in range(len(lines)):
             if lines[i].startswith(key):
-                lines[i] = key + '=' + value + '\n'
+                lines[i] = key + '=' + str(value) + '\n'
                 line_replaced = True
                 break
         if not line_replaced:
-            lines.append(key + '=' + value + '\n')
+            lines.append(key + '=' + str(value) + '\n')
     else:
         for i in range(len(lines)):
             if lines[i].startswith(key):
@@ -55,91 +102,77 @@ def modify_env(key, value=None, delete=False):
     with open(".env", 'w') as file:
         file.writelines(lines)
 
+def safe_literal_eval(val):
+    """
+    Safely evaluate a string representation of a Python literal (e.g., list).
+    Returns an empty list if the input is invalid, NaN, or not a string.
+    """
+    if pd.isna(val) or not isinstance(val, str):
+        return []
+    try:
+        return ast.literal_eval(val)
+    except (ValueError, SyntaxError):
+        return []
+
 # map study utils below
 def reorder_lists(list1, list2, value):
     """
     Reorders two lists, such that the value is at the top of list1.
-
-    Args:
-        list1 (list): The first list.
-        list2 (list): The second list.
-        value (any): The value to reorder around.
-
-    Returns:
-        tuple: The reordered lists.
     """
-    index = list1.index(value)
-    reordered_list1 = [value] + list1[:index] + list1[index+1:]
-    reordered_list2 = [list2[index]] + list2[:index] + list2[index+1:]
-    return reordered_list1, reordered_list2
+    try:
+        index = list1.index(value)
+        reordered_list1 = [value] + list1[:index] + list1[index+1:]
+        reordered_list2 = [list2[index]] + list2[:index] + list2[index+1:]
+        return reordered_list1, reordered_list2
+    except ValueError:
+        return list1, list2 # Return original lists if value not found
 
 def split_var_confidence(mapped_value):
     """
     Splits a mapped value into variable and confidence parts.
-
-    Args:
-        mapped_value (str): The mapped value string.
-
-    Returns:
-        tuple: A tuple containing the variable and confidence.
     """
     parts = mapped_value.split('  - ')
-    if len(parts) > 1:
-        return parts[0], parts[1]
-    else:
-        return parts[0], None
+    return (parts[0], parts[1]) if len(parts) > 1 else (parts[0], None)
     
 def format_example_data(example_data):
     """
     Formats example data for display.
-
-    Args:
-        example_data (list): List of example data.
-
-    Returns:
-        str: Formatted example data string.
     """
-    example_data = [str(x) for x in list(example_data)]
+    example_data = [str(x) for x in list(example_data) if pd.notna(x)]
     if len(example_data) >= 5:
         example_data.insert(5, '\n')
-    example = ' ; '.join(example_data)
-    return example
+    return ' ; '.join(example_data)
 
 def pre_process_recomendations(to_map_df, type_, study):
     """
-    Pre-processes recommendations for mapping. By appending the confidence to the recommendation and reordering the list to have the previous PID or Date at the top of the respective lists. 
-
-    Args:
-        to_map_df (DataFrame): The DataFrame containing variables to map.
-        type_ (str): The type of recommendation (e.g., 'target', 'PID', 'date').
-        study (str): The study name.
-
-    Returns:
-        list: List of recommended keys.
+    Pre-processes recommendations for mapping.
     """
-    recommended_codebook = eval(to_map_df[f'{type_}_recommendations'].to_list()[0])
-    recommended_confidence = eval(to_map_df[f'{type_}_distances'].to_list()[0])
+    recommendation_str = to_map_df[f'{type_}_recommendations'].to_list()[0]
+    distances_str = to_map_df[f'{type_}_distances'].to_list()[0]
+
+    recommended_codebook = safe_literal_eval(recommendation_str)
+    recommended_confidence = safe_literal_eval(distances_str)
+
+    if not recommended_codebook:
+        return ['No recommendations available']
+
     recommended_confidence = [f" - {round((1-x)*(100))}%" for x in recommended_confidence]
-    if f'{type_}_{study}' in st.session_state:
-        if st.session_state[f'{type_}_{study}'] != 'None':
-            recommended_codebook, recommended_confidence = reorder_lists(recommended_codebook, recommended_confidence, st.session_state[f'{type_}_{study}'])
-    recommended_keys = [f"{x} {y}" for x, y in zip(recommended_codebook, recommended_confidence)]
+    
+    if f'{type_}_{study}' in st.session_state and st.session_state[f'{type_}_{study}'] != 'None':
+        recommended_codebook, recommended_confidence = reorder_lists(recommended_codebook, recommended_confidence, st.session_state[f'{type_}_{study}'])
+    
+    recommended_keys = [f"{x}{y}" for x, y in zip(recommended_codebook, recommended_confidence)]
+    
     if type_ in ['PID', 'date']:
         recommended_keys.insert(0, 'None  - 0%')
-        if f'{type_}_{study}' in st.session_state:
-            print(st.session_state[f'{type_}_{study}'])
-            if st.session_state[f'{type_}_{study}'] != 'None':
-                recommended_keys.insert(1, recommended_keys.pop(0)) # move None to second position if a PID or date has previously been mapped
+        if f'{type_}_{study}' in st.session_state and st.session_state[f'{type_}_{study}'] != 'None':
+            recommended_keys.insert(1, recommended_keys.pop(0))
+            
     return recommended_keys
 
 def add_to_session_state(study, patient_id, date):
     """
     Adds patient ID and date to the session state.
-
-    Args:
-        study (str): The study name.
-        patient_id (str): The patient ID.
-        date (str): The date.
     """
     st.session_state[f'PID_{study}'] = patient_id
     st.session_state[f'date_{study}'] = date

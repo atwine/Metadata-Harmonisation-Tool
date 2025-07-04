@@ -77,7 +77,7 @@ From here incoming study data whichs need to be mapped to the target codebook ca
 
 #### Step 3: Initialise Tool
 
-Once studies have been uploaded you can run the variable description completion and ontology recomendation engines. You will be prompted to upload an OpenAI API key and given the option to fine tune the LLM propt used by the description completion engine.
+Once studies have been uploaded, you can run the variable description completion and ontology recommendation engines. This tool uses a local Ollama instance to power its AI features, so please ensure Ollama is installed and running on your machine before you proceed. You will be given the option to fine-tune the LLM prompt used by the description completion engine.
 
 #### Step 3: Map Datasets to Codebook
 

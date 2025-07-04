@@ -1,0 +1,21 @@
+study_var,codebook_var,confidence,notes,marked,patient_id,date,time,transformation_instructions,transformation_type,source_dtype,target_dtype,patient_id_var,patient_id_confidence,date_var,date_confidence
+sbsmk,,,,To do,,,,,,,,,,,
+age,,,,To do,,,,,,,,,,,
+HRTRTE,,,,To do,,,,,,,,,,,
+wt,,,,To do,,,,,,,,,,,
+alcfrq,,,,To do,,,,,,,,,,,
+jobtyp,,,,To do,,,,,,,,,,,
+lvpl,,,,To do,,,,,,,,,,,
+mrtsts2,,,,To do,,,,,,,,,,,
+cmatccd1_2,,,,To do,,,,,,,,,,,
+phyact,,,,To do,,,,,,,,,,,
+cafuse,,,,To do,,,,,,,,,,,
+gender,,,,To do,,,,,,,,,,,
+dginvtx3,,,,To do,,,,,,,,,,,
+ethori_self,,,,To do,,,,,,,,,,,
+dginvtx2,,,,To do,,,,,,,,,,,
+cmatccd1_3,,,,To do,,,,,,,,,,,
+DBP,Diastolic Blood Pressure - 88%,,,Successfully mapped,,,,x,Direct,float,string,,0%,,0%
+SBP,Systolic Blood Pressure - 87%,,,Successfully mapped,,,,x,Direct,float,string,,0%,,0%
+ht,Height - 84%,,,Successfully mapped,,,,x,Direct,float,string,,0%,,0%
+pt,Patient Identifier - 81%,,,Successfully mapped,,,,x,Direct,float,string,None,0%,None,0%
