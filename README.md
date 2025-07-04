@@ -10,23 +10,35 @@ The Metadata Harmonisation Interface provides a convenient portal to match varia
 
 ## How to use it: 
 
-### Docker (recommended)
+### Ollama Setup (Required)
 
-The easiest way to use the application on your local computer is by using this [docker image](https://hub.docker.com/r/peterm790/metadata_harmonisation_tool).
+This application now uses [Ollama](https://ollama.ai/) for all AI functionality. Before running the tool, you'll need to:
 
-You will need to have [installed docker](https://www.docker.com/get-started/) on your machine.
+1. **Install Ollama**:
+   - Download and install from [ollama.ai](https://ollama.ai/)
+   - Ensure Ollama is running (you should see the Ollama icon in your system tray)
+   - Ollama runs a local server on port 11434 by default
 
-If you are using the docker desktop client you can simply search for `peterm790/metadata_harmonisation_tool` in the top search bar and select run image. Be sure to add `8501` as the host port in the `Optional Settings` drop down menu. Once running the app will be accessible from your browser at [localhost:8501/](localhost:8501/)
+2. **Download Required Models**:
+   - The tool requires two specific models:
+     - `llama3.1:8b` for chat functionality (text generation)
+     - `nomic-embed-text` for text embeddings
+   - Install these models using the following commands in your terminal:
+   ```bash
+   ollama pull llama3.1:8b
+   ollama pull nomic-embed-text
+   ```
 
-If you prefer to use the terminal you can run the following once the docker daemon is running. 
+3. **Verify Models**:
+   - Ensure both models are successfully downloaded by running:
+   ```bash
+   ollama list
+   ```
+   - You should see both models listed in the output
 
-```
-docker pull peterm790/metadata_harmonisation_tool
+### Docker (coming soon)
 
-docker run -p 8501:8501 peterm790/metadata_harmonisation_tool
-```
-
-The app will then be accessible from your browser at [localhost:8501/](localhost:8501/)
+Docker support is coming soon. For now, please use the conda environment setup below.
 
 ### Configure python environment
 
@@ -35,20 +47,50 @@ Alternatively if you are familiar with configuring python environments a suitabl
 If you do not have a preferred python package manager already installed I recommend installing [Micromamba](https://mamba.readthedocs.io/en/latest/micromamba-installation.html#)
 
 ```
-git clone git@github.com:csag-uct/Health_Data_Harmonisation_Platform.git
+git clone https://github.com/atwine/Metadata-Harmonisation-Tool.git
 
-cd Health_Data_Harmonisation_Platform
+cd Metadata-Harmonisation-Tool
 
 conda env create -f environment.yml
 conda activate harmonisation_env
 
 pip install -r requirements.txt # some packages not available on conda channels
 
+# Make sure Ollama is running and models are downloaded
+# See "Ollama Setup" section above
+
 cd app/
 
 streamlit run app.py
 ```
-The app will then be accessible from your browser at [localhost:8501/](localhost:8501/) 
+
+## Troubleshooting
+
+### Ollama Connection Issues
+
+If you encounter issues connecting to Ollama:
+
+1. **Check if Ollama is running**:
+   - Verify the Ollama application is running on your system
+   - Check that it's accessible at `http://localhost:11434`
+
+2. **Verify model availability**:
+   - Run `ollama list` to confirm required models are downloaded
+   - Models should include `llama3.1:8b` and `nomic-embed-text`
+   - Note: Model names may have version suffixes (like `:latest`), which is handled automatically
+
+3. **Connection errors**:
+   - Ensure no firewall or antivirus software is blocking the connection
+   - Restart Ollama if connection fails
+   - Check application logs for specific error messages
+
+4. **Model loading errors**:
+   - If models appear installed but fail to load, try:
+    ```bash
+    ollama pull llama3.1:8b --force
+    ollama pull nomic-embed-text --force
+    ```
+    - This will redownload the models if they're corrupted
 
 Please note the application requires a Unix like filesystem and so windows users will need to use WSL. 
 
