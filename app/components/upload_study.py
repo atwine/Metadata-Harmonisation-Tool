@@ -34,20 +34,32 @@ def add_new_study(study_title, study_description, variables, example_data, conte
         variables (UploadedFile): A CSV file containing variable names and descriptions.
         example_data (UploadedFile): An optional CSV file containing example data.
         context_docs (UploadedFile): An optional PDF file containing contextual documents.
+
+    Returns:
+        tuple: A tuple containing a boolean for success and a string message.
     """
-    variables_df = streamlit_csv_reader(variables)[['variable_name', 'description']]
-    study_path = f"{input_path}/{study_title}"
-    fs.mkdirs(study_path, exist_ok = True)
-    if study_description:
-        with fs.open(f"{study_path}/description.txt", "w") as file:
-            file.write(study_description)
-    variables_df.to_csv(f"{study_path}/dataset_variables.csv")
-    if example_data:
-        example_df = pd.read_csv(example_data)
-        example_df.to_csv(f"{study_path}/example_data.csv")
-    if context_docs:
-        with open(f"{study_path}/context.pdf", "wb") as file:
-            file.write(context_docs.getvalue())
+    if not study_title:
+        return False, "Study Title is required. Please enter a title."
+    if not variables:
+        return False, "Variables Table is required. Please upload a CSV file."
+
+    try:
+        variables_df = streamlit_csv_reader(variables)[['variable_name', 'description']]
+        study_path = f"{input_path}/{study_title}"
+        fs.mkdirs(study_path, exist_ok=True)
+        if study_description:
+            with fs.open(f"{study_path}/description.txt", "w") as file:
+                file.write(study_description)
+        variables_df.to_csv(f"{study_path}/dataset_variables.csv")
+        if example_data:
+            example_df = pd.read_csv(example_data)
+            example_df.to_csv(f"{study_path}/example_data.csv")
+        if context_docs:
+            with open(f"{study_path}/context.pdf", "wb") as file:
+                file.write(context_docs.getvalue())
+        return True, f"Study '{study_title}' was added successfully!"
+    except Exception as e:
+        return False, f"Failed to add study. An error occurred: {e}. Please check your file formats and try again."
 
 def add_study_page():
     """
@@ -67,4 +79,8 @@ def add_study_page():
         context_docs = st.file_uploader('Contextual Documents (optional):', type=['pdf'], accept_multiple_files=False, help = "This application uses natural language processing to automatically provide variable descriptions. To aid this process you can upload a relevant document such as a study protocol, journal article, or ideally codebook here.")
         submit = st.form_submit_button(":green[Add New Study]", disabled = disable)
         if submit:
-            add_new_study(study_title, study_description, variables, example_data, context_docs)
+            success, message = add_new_study(study_title, study_description, variables, example_data, context_docs)
+            if success:
+                st.success(message)
+            else:
+                st.error(message)
