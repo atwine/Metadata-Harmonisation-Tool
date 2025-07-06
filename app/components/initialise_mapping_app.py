@@ -51,10 +51,20 @@ def initialise_mapping_recommendations():
         mapped = [s for s in avail_studies if fs.exists(f'{input_path}/{s}/dataset_variables_with_recommendations.csv')]
 
         if uploaded:
+            # Create a summary message for the expander
             if len(uploaded) == len(mapped):
-                st.write(f":green[{len(uploaded)} studies uploaded and recommendations created. :white_check_mark:]")
+                summary_message = f":green[{len(uploaded)} studies uploaded. All have recommendations. :white_check_mark:]"
+                expanded_default = False
             else:
-                st.write(f":green[{len(uploaded)} studies uploaded.] :red[{len(mapped)} have recommendations.]")
+                summary_message = f":orange[{len(uploaded)} studies uploaded, but only {len(mapped)} have recommendations. Click to see details.]"
+                expanded_default = True
+
+            with st.expander(summary_message, expanded=expanded_default):
+                for study_name in sorted(uploaded):
+                    if study_name in mapped:
+                        st.markdown(f"&nbsp;&nbsp;&nbsp;- **{study_name}**: :white_check_mark: Recommendations created.")
+                    else:
+                        st.markdown(f"&nbsp;&nbsp;&nbsp;- **{study_name}**: :x: Ready to be initialised.")
         else:
             st.write(":red[Please upload a study to map]")
 
