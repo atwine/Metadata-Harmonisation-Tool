@@ -1,16 +1,7 @@
 import pandas as pd
 import fsspec
 import time
-from dotenv import dotenv_values
-from openai import OpenAI # type: ignore
-
-def init_llm_models(config):
-    openai_client = None
-    if 'OpenAI_api_key' in list(config):
-        openai_client = OpenAI(api_key=config['OpenAI_api_key'])
-    else:
-        raise ValueError("No OpenAI API key found. Please provide an API key to proceed.")
-    return openai_client
+import ollama
 
 
 results_path = "results"
@@ -109,37 +100,27 @@ def return_direct_conversion_prompt(source_var, target_var, initial_instructions
                 ]
     return prompts
 
-def get_openai_llm_response(openai_client, prompt):
+def get_ollama_llm_response(prompt):
     """
-    Get the response from OpenAI's LLM for a given prompt.
+    Get the response from Ollama's LLM for a given prompt.
 
     Args:
-        openai_client (object): The OpenAI client.
         prompt (list): The prompt messages.
 
     Returns:
         str: The response from the LLM.
     """
-    llm_response = None
     try:
-        llm_response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=prompt)
-    except:
-        time.sleep(1)
-        print('retry')
-        try:
-            llm_response = openai_client.chat.completions.create(model="gpt-3.5-turbo", messages=prompt)
-        except:
-            llm_response = None
-            print('openai fail') # if all fail good chance the context length is too long
-    if llm_response:
-        return llm_response.choices[0].message.content # type: ignore
-    else: 
+        client = ollama.Client()
+        response = client.chat(model='llama3.1:8b', messages=prompt)
+        return response['message']['content']
+    except Exception as e:
+        print(f"Failed to get response from Ollama: {e}")
         return None
     
 def generate_transformations(target_var, source_var, examples, initial_instructions, codebook):
     
-    config = dotenv_values(".env")
-    openai_client = init_llm_models(config)
+
 
     categories = codebook['Categories'].item()
     target_dtype = codebook['dType'].item()
@@ -151,5 +132,5 @@ def generate_transformations(target_var, source_var, examples, initial_instructi
     else:
         prompts = return_direct_conversion_prompt(source_var, target_var, initial_instructions, examples, target_dtype, target_unit, target_example)
     
-    return get_openai_llm_response(openai_client, prompts)
+    return get_ollama_llm_response(prompts)
 

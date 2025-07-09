@@ -48,6 +48,18 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+
+# Ignore generated results files
+results/
+
+# Ignore user-uploaded study data
+input/
+
+# Ignore Python virtual environment
+venv/
+
+# Ignore environment variables file
+.env
 .pytest_cache/
 cover/
 

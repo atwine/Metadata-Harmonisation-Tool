@@ -1,2 +1,10 @@
 # after correctly installing the dependancies listed in enviroment.yml
+streamlit
+pandas
+ollama
+python-dotenv
+fsspec
 clevercsv
+duckdb
+scipy
+pdfminer.six
