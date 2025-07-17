@@ -7,6 +7,7 @@ from components.map_study import map_study
 from components.about import about_page
 from components.download import download_page
 from components.initialise_mapping_app import initialise_mapping_recommendations
+from components.ai_config_ui import ai_config_ui
 
 results_path = "results"
 input_path = "input"
@@ -30,6 +31,10 @@ with st.sidebar:
     st.write("## Mapping App")
     st.divider()
     page = st.selectbox('Page', ["About", "Upload Codebook","Upload Studies", "Initialise", "Map Studies", "Download Results"])
+    
+    # AI Configuration UI
+    st.divider()
+    ai_config_ui.render_configuration_panel()
     if page == "Map Studies":
         if fs.exists(f'input/'):
             avail_studies = []

@@ -2,6 +2,8 @@ import pandas as pd
 import fsspec
 import time
 import ollama
+from .util import get_ai_provider, get_ollama_client
+from .ai_provider import AIProviderError
 
 
 results_path = "results"
@@ -100,9 +102,10 @@ def return_direct_conversion_prompt(source_var, target_var, initial_instructions
                 ]
     return prompts
 
-def get_ollama_llm_response(prompt):
+def get_llm_response(prompt):
     """
-    Get the response from Ollama's LLM for a given prompt.
+    Get the response from the configured AI provider for a given prompt.
+    Falls back to Ollama client for backward compatibility.
 
     Args:
         prompt (list): The prompt messages.
@@ -110,8 +113,18 @@ def get_ollama_llm_response(prompt):
     Returns:
         str: The response from the LLM.
     """
+    # Try new AI provider system first
+    ai_provider = get_ai_provider()
+    if ai_provider:
+        try:
+            return ai_provider.generate_chat_response(prompt)
+        except AIProviderError as e:
+            print(f"AI provider chat completion failed: {e}")
+            # Fall through to legacy method
+    
+    # Fallback to legacy Ollama client
     try:
-        client = ollama.Client()
+        client = get_ollama_client() or ollama.Client()
         response = client.chat(model='llama3.1:8b', messages=prompt)
         return response['message']['content']
     except Exception as e:
@@ -119,9 +132,20 @@ def get_ollama_llm_response(prompt):
         return None
     
 def generate_transformations(target_var, source_var, examples, initial_instructions, codebook):
+    """
+    Generate transformation instructions for converting source variables to target variables.
+    Uses the configured AI provider for generating instructions.
     
-
-
+    Args:
+        target_var (str): The target variable name.
+        source_var (str): The source variable name.
+        examples (list): Example values from the source variable.
+        initial_instructions (str): Initial transformation instructions.
+        codebook (pd.DataFrame): The codebook containing target variable information.
+    
+    Returns:
+        str: Generated transformation instructions.
+    """
     categories = codebook['Categories'].item()
     target_dtype = codebook['dType'].item()
     target_unit = codebook['Unit'].item()
@@ -132,5 +156,5 @@ def generate_transformations(target_var, source_var, examples, initial_instructi
     else:
         prompts = return_direct_conversion_prompt(source_var, target_var, initial_instructions, examples, target_dtype, target_unit, target_example)
     
-    return get_ollama_llm_response(prompts)
+    return get_llm_response(prompts)
 

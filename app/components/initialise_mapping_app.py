@@ -3,7 +3,7 @@ import fsspec
 from dotenv import dotenv_values
 from .get_recommendations import get_embeddings, get_recommendations, get_PID_date_recommendations
 from .generate_descriptions import generate_descriptions, convert_pdf_to_txt
-from .util import modify_env, delete_files_and_folders, get_ollama_client, OLLAMA_CHAT_MODEL
+from .util import modify_env, delete_files_and_folders, get_ollama_client, get_ai_provider, OLLAMA_CHAT_MODEL
 
 fs = fsspec.filesystem("")
 
@@ -12,16 +12,27 @@ input_path = "input"
 
 def initialise_mapping_recommendations():
     """
-    Initialise the mapping recommendations by checking for Ollama connection and necessary files.
+    Initialise the mapping recommendations by checking for AI provider connection and necessary files.
     """
     config = dotenv_values(".env")
 
-    # Check for Ollama connection status
-    ollama_client = get_ollama_client()
-    if ollama_client:
-        st.write(f":green[Connected to Ollama. Using model: `{OLLAMA_CHAT_MODEL}` :white_check_mark:]")
+    # Check for AI provider connection status
+    ai_provider = get_ai_provider()
+    ai_provider_available = ai_provider is not None
+    
+    if ai_provider_available:
+        provider_info = ai_provider.get_provider_info()
+        provider_name = provider_info['provider'].title()
+        model_name = provider_info['chat_model']
+        st.write(f":green[Connected to {provider_name}. Using model: `{model_name}` :white_check_mark:]")
     else:
-        st.write(":red[Failed to connect to Ollama. Please ensure Ollama is running locally.]")
+        # Fallback to Ollama connection check
+        ollama_client = get_ollama_client()
+        if ollama_client:
+            st.write(f":green[Connected to Ollama. Using model: `{OLLAMA_CHAT_MODEL}` :white_check_mark:]")
+            ai_provider_available = True
+        else:
+            st.write(":red[No AI provider configured. Please configure an AI provider in the sidebar or ensure Ollama is running locally.]")
 
     st.divider()
 
@@ -68,7 +79,7 @@ def initialise_mapping_recommendations():
         else:
             st.write(":red[Please upload a study to map]")
 
-        run = st.button("Run Recommendation Engine", key='run', disabled=not ollama_client)
+        run = st.button("Run Recommendation Engine", key='run', disabled=not ai_provider_available)
         if run:
             with st.spinner('Thinking... :coffee:'):
                 convert_pdf_to_txt()

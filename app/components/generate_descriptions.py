@@ -6,7 +6,8 @@ from pdfminer.high_level import extract_text
 import re
 from scipy import spatial
 from dotenv import dotenv_values
-from .util import get_ollama_client, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL
+from .util import get_ollama_client, get_ai_provider, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL
+from .ai_provider import AIProviderError
 
 results_path = "results"
 input_path = "input"
@@ -56,15 +57,30 @@ def convert_pdf_to_txt():
             except Exception as e:
                 print(f"Error converting {pdf_path}: {e}")
 
-def get_embedding(ollama_client, text, model=OLLAMA_EMBEDDING_MODEL):
+def get_embedding(text, model=None):
     """
-    Get the embedding for a given text using Ollama.
+    Get the embedding for a given text using the configured AI provider.
+    Falls back to Ollama client for backward compatibility.
     """
     text = str(text).replace("\n", " ")
+    
+    # Try new AI provider system first
+    ai_provider = get_ai_provider()
+    if ai_provider:
+        try:
+            return ai_provider.generate_embedding(text)
+        except AIProviderError as e:
+            print(f"Error generating embedding with AI provider: {e}")
+            # Fall through to legacy method
+    
+    # Fallback to legacy Ollama client
+    ollama_client = get_ollama_client()
     if not ollama_client:
         return None
+    
     try:
-        response = ollama_client.embeddings(model=model, prompt=text)
+        embedding_model = model or OLLAMA_EMBEDDING_MODEL
+        response = ollama_client.embeddings(model=embedding_model, prompt=text)
         return response.get('embedding')
     except Exception as e:
         print(f"Error generating Ollama embedding: {e}")
@@ -93,9 +109,9 @@ def split_text_recursively(text: str, chunk_size: int = 1000) -> list[str]:
         
     return chunks
 
-def embed_documents(ollama_client, input_path, study):
+def embed_documents(input_path, study):
     """
-    Embed the documents for a given study.
+    Embed the documents for a given study using the configured AI provider.
     """
     txt_path = f"{input_path}/{study}/context.txt"
     if not fs.exists(txt_path):
@@ -105,14 +121,14 @@ def embed_documents(ollama_client, input_path, study):
         text = f.read()
     
     text_chunks = split_text_recursively(text)
-    embeddings = [get_embedding(ollama_client, chunk) for chunk in text_chunks]
+    embeddings = [get_embedding(chunk) for chunk in text_chunks]
     return text_chunks, [e for e in embeddings if e is not None]
 
-def get_relevant_context(ollama_client, varname, text_chunks, embeddings, relevance_dist='min'):
+def get_relevant_context(varname, text_chunks, embeddings, relevance_dist='min'):
     """
     Get the relevant context for a variable name based on embeddings.
     """
-    var_embedding = get_embedding(ollama_client, varname)
+    var_embedding = get_embedding(varname)
     if not var_embedding or not embeddings:
         return ''
 
@@ -128,7 +144,7 @@ def get_relevant_context(ollama_client, varname, text_chunks, embeddings, releva
         context = " ".join([text_chunks[i] for i in top3])
     return context
 
-def get_example_dict(ollama_client, described, variables_df, text_chunks=None, embeddings=None):
+def get_example_dict(described, variables_df, text_chunks=None, embeddings=None):
     """
     Create a dictionary of example contexts and descriptions.
     """
@@ -138,17 +154,29 @@ def get_example_dict(ollama_client, described, variables_df, text_chunks=None, e
     for var in example_vars:
         context = 'Not available'
         if text_chunks and embeddings:
-            context = get_relevant_context(ollama_client, var, text_chunks, embeddings)
+            context = get_relevant_context(var, text_chunks, embeddings)
         description = variables_df[variables_df['variable_name'] == var]['description'].iloc[0]
         example_dict[var] = (context, description)
     return example_dict
 
-def get_llm_response(ollama_client, prompt):
+def get_llm_response(prompt):
     """
-    Get the response from the Ollama LLM for a given prompt.
+    Get the response from the configured AI provider for a given prompt.
     """
+    # Try new AI provider system first
+    ai_provider = get_ai_provider()
+    if ai_provider:
+        try:
+            response = ai_provider.generate_chat_response(prompt)
+            return f'*{response}'  # Add a * to indicate AI generation
+        except AIProviderError as e:
+            print(f"AI provider chat completion failed: {e}")
+            # Fall through to legacy method
+    
+    # Fallback to legacy Ollama client
+    ollama_client = get_ollama_client()
     if not ollama_client:
-        raise ValueError("No Ollama client available.")
+        raise ValueError("No AI provider available.")
     
     try:
         response = ollama_client.chat(model=OLLAMA_CHAT_MODEL, messages=prompt)
@@ -163,10 +191,15 @@ def generate_descriptions():
     Generate descriptions for variables in datasets.
     """
     config = dotenv_values(".env")
-    ollama_client = get_ollama_client()
-    if not ollama_client:
-        print("Could not initialize Ollama client. Aborting description generation.")
-        return
+    
+    # Check if AI provider is available
+    ai_provider = get_ai_provider()
+    if not ai_provider:
+        # Fallback to legacy Ollama client
+        ollama_client = get_ollama_client()
+        if not ollama_client:
+            print("Could not initialize AI provider. Aborting description generation.")
+            return
 
     init_prompt = config.get('init_prompt', 'Default prompt if not set')
     
@@ -187,15 +220,15 @@ def generate_descriptions():
 
         text_chunks, embeddings = [], []
         if fs.exists(f"{input_path}/{study}/context.txt"):
-            text_chunks, embeddings = embed_documents(ollama_client, input_path, study)
+            text_chunks, embeddings = embed_documents(input_path, study)
 
-        example_dict = get_example_dict(ollama_client, described, variables_df, text_chunks, embeddings) if described else None
+        example_dict = get_example_dict(described, variables_df, text_chunks, embeddings) if described else None
         
         codebook = {}
         for var in to_do:
-            context = get_relevant_context(ollama_client, var, text_chunks, embeddings) if text_chunks and embeddings else 'Not available'
+            context = get_relevant_context(var, text_chunks, embeddings) if text_chunks and embeddings else 'Not available'
             prompt = return_prompt(init_prompt, var, context, example_dict)
-            llm_response = get_llm_response(ollama_client, prompt)
+            llm_response = get_llm_response(prompt)
             if llm_response:
                 codebook[var] = llm_response
         

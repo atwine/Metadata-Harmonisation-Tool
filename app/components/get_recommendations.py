@@ -2,7 +2,8 @@ import pandas as pd
 import fsspec
 from scipy import spatial
 from dotenv import dotenv_values
-from .util import get_ollama_client, OLLAMA_EMBEDDING_MODEL
+from .util import get_ollama_client, get_ai_provider, OLLAMA_EMBEDDING_MODEL
+from .ai_provider import AIProviderError
 import numpy as np
 import ast
 
@@ -11,18 +12,37 @@ input_path = "input"
 
 fs = fsspec.filesystem("")
 
-def get_embedding(ollama_client, text, model=OLLAMA_EMBEDDING_MODEL):
+def get_embedding(text, model=None):
     """
-    Generate an embedding for the given text using the specified Ollama model.
+    Generate an embedding for the given text using the configured AI provider.
+    Falls back to Ollama client for backward compatibility.
     Ensures the return type is a list or None.
     """
     text = str(text).replace("\n", " ")
+    
+    # Try new AI provider system first
+    ai_provider = get_ai_provider()
+    if ai_provider:
+        try:
+            embedding = ai_provider.generate_embedding(text)
+            if isinstance(embedding, list):
+                return embedding
+            else:
+                print(f"Warning: AI provider returned an unexpected format for embedding: {embedding}")
+                # Fall through to legacy method
+        except AIProviderError as e:
+            print(f"Error generating embedding with AI provider: {e}")
+            # Fall through to legacy method
+    
+    # Fallback to legacy Ollama client
+    ollama_client = get_ollama_client()
     if not ollama_client:
-        print("Error: Ollama client is not initialized.")
+        print("Error: No AI provider available.")
         return None
     
     try:
-        response = ollama_client.embeddings(model=model, prompt=text)
+        embedding_model = model or OLLAMA_EMBEDDING_MODEL
+        response = ollama_client.embeddings(model=embedding_model, prompt=text)
         embedding = response.get('embedding')
         
         if isinstance(embedding, list):
@@ -35,30 +55,26 @@ def get_embedding(ollama_client, text, model=OLLAMA_EMBEDDING_MODEL):
         print(f"Error generating Ollama embedding for text '{text}': {str(e)}")
         return None
 
-def embed_codebook(ollama_client):
+def embed_codebook():
     """
-    Embed the codebook variables and descriptions using the Ollama client and save the results.
-
-    Args:
-        ollama_client: The Ollama client instance.
+    Embed the codebook variables and descriptions using the configured AI provider.
     """
     if not fs.exists(f'{input_path}/target_variables_with_embeddings.csv'):
         df = pd.read_csv(f"{input_path}/target_variables.csv")
-        df["var_embeddings"] = df['variable_name'].apply(lambda x: get_embedding(ollama_client, x))
-        df["description_embeddings"] = df['description'].apply(lambda x: get_embedding(ollama_client, x))
+        df["var_embeddings"] = df['variable_name'].apply(lambda x: get_embedding(x))
+        df["description_embeddings"] = df['description'].apply(lambda x: get_embedding(x))
         df.to_csv(f'{input_path}/target_variables_with_embeddings.csv', index=False)
 
-def embed_study(ollama_client, study):
+def embed_study(study):
     """
-    Embed the study variables and descriptions using the Ollama client and save the results.
+    Embed the study variables and descriptions using the configured AI provider.
 
     Args:
-        ollama_client: The Ollama client instance.
         study (str): The study name.
     """
     df = pd.read_csv(f'{input_path}/{study}/dataset_variables_auto_completed.csv')[['variable_name','description']]
-    df["var_embeddings"] = df['variable_name'].apply(lambda x: get_embedding(ollama_client, x))
-    df["description_embeddings"] = df['description'].apply(lambda x: get_embedding(ollama_client, x))
+    df["var_embeddings"] = df['variable_name'].apply(lambda x: get_embedding(x))
+    df["description_embeddings"] = df['description'].apply(lambda x: get_embedding(x))
     df.to_csv(f'{input_path}/{study}/dataset_variables_with_embeddings.csv', index=False)
 
 def calculate_cosine_similarity(embedding1, embedding2):
@@ -132,16 +148,15 @@ def get_embeddings():
     """
     Generate embeddings for all available studies and the codebook.
 
-    This function initializes the Ollama client, embeds the codebook, and then
-    iterates over all available studies to embed their variables and descriptions.
+    This function embeds the codebook and then iterates over all available studies
+    to embed their variables and descriptions using the configured AI provider.
     """
-    ollama_client = get_ollama_client()
-    embed_codebook(ollama_client)
+    embed_codebook()
     avail_studies = [x for x in fs.ls(f'{input_path}/') if fs.isdir(x)] # get directories
     avail_studies = [f.split('/')[-1] for f in avail_studies if f.split('/')[-1][0] != '.'] # strip path and remove hidden folders
     for study in avail_studies:
         if not fs.exists(f'{input_path}/{study}/dataset_variables_with_embeddings.csv'):
-            embed_study(ollama_client, study)
+            embed_study(study)
         
 def get_recommendations():
     """
@@ -156,12 +171,11 @@ def get_recommendations():
         if not fs.exists(f'{input_path}/{study}/dataset_variables_with_recommendations.csv'):
             generate_recommendations(study)
 
-def generate_PID_date_recommendations(ollama_client, study):
+def generate_PID_date_recommendations(study):
     """
     Generate Index and date recommendations for the given study.
 
     Args:
-        ollama_client: The Ollama client instance.
         study (str): The study name.
     """
     study_df = pd.read_csv(f'{input_path}/{study}/dataset_variables_with_recommendations.csv')
@@ -169,7 +183,7 @@ def generate_PID_date_recommendations(ollama_client, study):
     date_distances = []
     for i in range(len(study_df)):
         study_var = study_df['description'].iloc[i]
-        date_embed = get_embedding(ollama_client, f'Date of {study_var}')
+        date_embed = get_embedding(f'Date of {study_var}')
         study_df["date_distance"] = study_df['description_embeddings'].apply(lambda x: calculate_cosine_similarity(date_embed, x))
         study_df_sorted = study_df.sort_values("date_distance")
         date_recommendations.append(list(study_df_sorted.variable_name))
@@ -181,7 +195,7 @@ def generate_PID_date_recommendations(ollama_client, study):
     PID_distances = []
     for i in range(len(study_df)):
         study_var = study_df['description'].iloc[i]
-        PID_embed = get_embedding(ollama_client, f'Unique Identifier of {study_var}')
+        PID_embed = get_embedding(f'Unique Identifier of {study_var}')
         study_df["PID_distance"] = study_df['description_embeddings'].apply(lambda x: calculate_cosine_similarity(PID_embed, x))
         study_df_sorted = study_df.sort_values("PID_distance")
         PID_recommendations.append(list(study_df_sorted.variable_name))
@@ -198,11 +212,10 @@ def get_PID_date_recommendations():
     Generate PID and date recommendations for all available studies.
 
     This function iterates over all available studies and generates PID and date
-    recommendations based on the cosine similarity of embeddings.
+    recommendations based on the cosine similarity of embeddings using the configured AI provider.
     """
-    ollama_client = get_ollama_client()
     avail_studies = [x for x in fs.ls(f'{input_path}/') if fs.isdir(x)] # get directories
     avail_studies = [f.split('/')[-1] for f in avail_studies if f.split('/')[-1][0] != '.'] # strip path and remove hidden folders
     for study in avail_studies:
         if not fs.exists(f'{input_path}/{study}/dataset_variables_with_PID_date_recommendations.csv'):
-            generate_PID_date_recommendations(ollama_client, study)
+            generate_PID_date_recommendations(study)

@@ -8,3 +8,6 @@ clevercsv
 duckdb
 scipy
 pdfminer.six
+# Multi-provider AI support
+openai>=1.0.0
+anthropic>=0.25.0

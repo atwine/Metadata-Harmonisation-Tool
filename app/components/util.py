@@ -3,8 +3,13 @@ import fsspec
 import ollama
 import pandas as pd
 import ast
+from typing import Optional
+from .ai_provider import get_ai_provider_from_session, AIProviderWrapper
+import logging
 
-# --- Ollama Configuration ---
+logger = logging.getLogger(__name__)
+
+# --- Legacy Ollama Configuration (for backward compatibility) ---
 OLLAMA_HOST = "localhost"
 OLLAMA_PORT = 11434
 OLLAMA_CHAT_MODEL = 'llama3.1:8b'
@@ -13,12 +18,30 @@ OLLAMA_EMBEDDING_MODEL = 'nomic-embed-text'
 # --- Filesystem ---
 fs = fsspec.filesystem("")
 
-# --- Ollama Client ---
+# --- AI Provider Functions ---
+def get_ai_provider() -> Optional[AIProviderWrapper]:
+    """
+    Get the configured AI provider from session state.
+    
+    Returns:
+        AIProviderWrapper instance or None if not configured
+    """
+    return get_ai_provider_from_session()
+
 def get_ollama_client():
     """
-    Initializes and returns an Ollama client if connection and models are valid.
-    Caches the client in the session state. Returns None on failure.
+    Legacy function for backward compatibility.
+    Returns Ollama client if Ollama is the configured provider.
+    
+    Returns:
+        Ollama client or None
     """
+    # Check if we have a configured AI provider
+    ai_provider = get_ai_provider()
+    if ai_provider and ai_provider.config.provider.value == 'ollama':
+        return ai_provider.config.get_client()
+    
+    # Fallback to legacy behavior
     if 'ollama_client' in st.session_state:
         return st.session_state.ollama_client
 
@@ -57,8 +80,7 @@ def get_ollama_client():
             return None
 
     except Exception as e:
-        # Log error for diagnostics if needed
-        print(f"Ollama connection error: {str(e)}")
+        logger.error(f"Ollama connection error: {str(e)}")
         st.session_state.ollama_client = None
         return None
 
