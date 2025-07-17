@@ -290,18 +290,20 @@ class AIConfigUI:
             provider = create_ai_provider(config)
             info = provider.get_provider_info()
             
-            st.markdown("#### ℹ️ Current Configuration")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric("Provider", info["provider"].title())
-                st.metric("Chat Model", info["chat_model"])
-            
-            with col2:
-                st.metric("Embedding Model", info["embedding_model"])
-                if info.get("base_url"):
-                    st.metric("Base URL", info["base_url"])
+            with st.container(border=True):
+                st.success("**Current Configuration**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**Provider**")
+                    st.markdown(f"> {info['provider'].title()}")
+                    st.markdown("**Chat Model**")
+                    st.markdown(f"> {info['chat_model']}")
+                with col2:
+                    st.markdown("**Embedding Model**")
+                    st.markdown(f"> {info['embedding_model']}")
+                    if info.get("base_url"):
+                        st.markdown("**Base URL**")
+                        st.markdown(f"> {info['base_url']}")
                     
         except Exception as e:
             st.error(f"Error displaying provider info: {str(e)}")

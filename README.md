@@ -18,6 +18,8 @@ This dramatically speeds up the mapping process.
 
 ---
 
+![alt text](image.png)
+
 ## 🚀 Getting Started (Recommended: Docker)
 
 The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker Compose. This method handles all Python dependencies and configuration for you.
@@ -196,6 +198,14 @@ The second step is the **ontology recommendation engine**. This again uses text 
 -   **Is Ollama running?**: Verify the Ollama application is running on your host system.
 -   **Models not found?**: Run `ollama list` to confirm `llama3.1:8b` and `nomic-embed-text` are downloaded.
 -   **Firewall**: Ensure no firewall or antivirus software is blocking the connection to `http://localhost:11434`.
+
+---
+
+## 📞 Contact
+
+Please report any issues to the GitHub repository. For more information or support, contact:
+- Peter Marsh: `peter.marsh@uct.ac.za`
+- Atwine Mugume: `twinmugume@gmail.com`
 
 ---
 
