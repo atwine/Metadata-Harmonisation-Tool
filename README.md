@@ -1,100 +1,140 @@
-# Data Harmonisation Tool
+# Metadata Harmonisation Tool
 
-This is a [streamlit](https://streamlit.io) application we have constructed that facilitates the matching of variable names in a dataset to that of a target codebook. The first and often most tedious step in developing a common data model. 
+This is a [Streamlit](https://streamlit.io) application that facilitates the matching of variable names in a dataset to that of a target codebook, dramatically speeding up the first and often most tedious step in developing a common data model.
 
 ![GUI screenshot](new_demo.gif)
 
-## What it does:
+## What it does
 
-The Metadata Harmonisation Interface provides a convenient portal to match variables from an incoming dataset to a target set of ontologies. In this way the tool provides a similar role to that of the [White Rabbit tool](https://github.com/OHDSI/WhiteRabbit) utilised by the OHDSI community. This tool differentiates itself by using Large Language Models to generate variable descriptions where none have been provided, recommending the most likely target variable to map to as well as supporting creation and testing of variable transformation instructions. A confidence indication is provided alongside mapping recommendations. This dramatically speeds up the mapping process.
+The Metadata Harmonisation Interface provides a convenient portal to match variables from an incoming dataset to a target set of ontologies. In this way, the tool provides a similar role to that of the [White Rabbit tool](https://github.com/OHDSI/WhiteRabbit) utilized by the OHDSI community.
 
-## How to use it: 
+This tool differentiates itself by using Large Language Models to:
+-   **Generate variable descriptions** where none have been provided.
+-   **Recommend the most likely target variable** to map to.
+-   **Support the creation and testing** of variable transformation instructions.
+-   **Provide a confidence score** alongside mapping recommendations.
 
-### Ollama Setup (Required)
+This dramatically speeds up the mapping process.
 
-This application now uses [Ollama](https://ollama.ai/) for all AI functionality. Before running the tool, you'll need to:
+---
 
-1. **Install Ollama**:
-   - Download and install from [ollama.ai](https://ollama.ai/)
-   - Ensure Ollama is running (you should see the Ollama icon in your system tray)
-   - Ollama runs a local server on port 11434 by default
+## 🚀 Getting Started (Recommended: Docker)
 
-2. **Download Required Models**:
-   - The tool requires two specific models:
-     - `llama3.1:8b` for chat functionality (text generation)
-     - `nomic-embed-text` for text embeddings
-   - Install these models using the following commands in your terminal:
-   ```bash
-   ollama pull llama3.1:8b
-   ollama pull nomic-embed-text
-   ```
+The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker Compose. This method handles all Python dependencies and configuration for you.
 
-3. **Verify Models**:
-   - Ensure both models are successfully downloaded by running:
-   ```bash
-   ollama list
-   ```
-   - You should see both models listed in the output
+### Prerequisites
 
-### Docker (coming soon)
+1.  **Docker**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system (Windows, Mac, or Linux).
+2.  **Ollama**: This application uses [Ollama](https://ollama.ai/) for all AI functionality.
+    -   Download and install from [ollama.ai](https://ollama.ai/).
+    -   Ensure Ollama is running (you should see the Ollama icon in your system tray).
+    -   Pull the required models by running the following commands in your terminal:
+        ```bash
+        ollama pull llama3.1:8b
+        ollama pull nomic-embed-text
+        ```
+    -   Verify the models are installed with `ollama list`.
 
-Docker support is coming soon. For now, please use the conda environment setup below.
+### Step 1: Clone the Repository
 
-### Configure python environment
-
-Alternatively if you are familiar with configuring python environments a suitable environment can be configured using conda. 
-
-If you do not have a preferred python package manager already installed I recommend installing [Micromamba](https://mamba.readthedocs.io/en/latest/micromamba-installation.html#)
-
-```
+```bash
 git clone https://github.com/atwine/Metadata-Harmonisation-Tool.git
-
 cd Metadata-Harmonisation-Tool
+```
 
+### Step 2: Configure Environment
+
+Create a `.env` file from the example template. This file will hold your local configuration.
+
+```bash
+# On Linux or macOS
+cp .env.example .env
+
+# On Windows
+copy .env.example .env
+```
+
+Open the `.env` file. For a standard local setup, you don't need to change anything. The default `OLLAMA_BASE_URL` is configured to connect to Ollama running on your host machine from within the Docker container.
+
+### Step 3: Build and Run the Application
+
+Use Docker Compose to build the image and start the application.
+
+```bash
+docker-compose -f docker/docker-compose.yml up --build -d
+```
+
+-   `--build`: Builds the Docker image from the Dockerfile. You only need to do this the first time or when code changes.
+-   `-d`: Runs the container in detached mode (in the background).
+
+### Step 4: Access the Application
+
+Once the container is running, open your web browser and navigate to:
+
+**[http://localhost:8501](http://localhost:8501)**
+
+You should now see the Metadata Harmonisation Tool interface.
+
+---
+
+## 🚢 Deployment
+
+### Building the Image
+
+The Docker image is built using a multi-stage `Dockerfile` to create an optimized and secure production image. You can build it manually with:
+
+```bash
+docker build -f docker/Dockerfile -t atwine/metadata-harmonisation-tool:latest .
+```
+
+### Pushing to Docker Hub
+
+Scripts are provided to simplify pushing the image to Docker Hub.
+
+1.  **Login to Docker Hub**:
+    ```bash
+    docker login
+    ```
+2.  **Run the push script**:
+    ```bash
+    # On Linux or macOS
+    chmod +x docker/push-to-dockerhub.sh
+    ./docker/push-to-dockerhub.sh
+
+    # On Windows
+    .\docker\push-to-dockerhub.bat
+    ```
+
+---
+
+## 🔧 Development
+
+### Running without Docker (Alternative)
+
+If you prefer not to use Docker, you can set up a local Python environment using Conda or Micromamba.
+
+```bash
+# Assumes you have conda or micromamba installed
 conda env create -f environment.yml
 conda activate harmonisation_env
-
-pip install -r requirements.txt # some packages not available on conda channels
+pip install -r requirements.txt
 
 # Make sure Ollama is running and models are downloaded
-# See "Ollama Setup" section above
-
 cd app/
-
 streamlit run app.py
 ```
 
-## Troubleshooting
+### Configuration Validation
 
-### Ollama Connection Issues
+A validation script is included to check your configuration and test AI provider connectivity.
 
-If you encounter issues connecting to Ollama:
+```bash
+python validate_config.py --all-providers
+```
 
-1. **Check if Ollama is running**:
-   - Verify the Ollama application is running on your system
-   - Check that it's accessible at `http://localhost:11434`
+---
 
-2. **Verify model availability**:
-   - Run `ollama list` to confirm required models are downloaded
-   - Models should include `llama3.1:8b` and `nomic-embed-text`
-   - Note: Model names may have version suffixes (like `:latest`), which is handled automatically
-
-3. **Connection errors**:
-   - Ensure no firewall or antivirus software is blocking the connection
-   - Restart Ollama if connection fails
-   - Check application logs for specific error messages
-
-4. **Model loading errors**:
-   - If models appear installed but fail to load, try:
-    ```bash
-    ollama pull llama3.1:8b --force
-    ollama pull nomic-embed-text --force
-    ```
-    - This will redownload the models if they're corrupted
-
-Please note the application requires a Unix like filesystem and so windows users will need to use WSL. 
-
-## General work flow:
+## ⚙️ General Workflow
 
 #### Step 1: Upload Target Codebook
 
@@ -121,22 +161,45 @@ From here incoming study data whichs need to be mapped to the target codebook ca
 
 Once studies have been uploaded, you can run the variable description completion and ontology recommendation engines. This tool uses a local Ollama instance to power its AI features, so please ensure Ollama is installed and running on your machine before you proceed. You will be given the option to fine-tune the LLM prompt used by the description completion engine.
 
-#### Step 3: Map Datasets to Codebook
+#### Step 4: Map Datasets to Codebook
 
 Once step 1 & 2 have been completed a recommendations algorithm will suggest the most likely variable mappings for each added dataset. The user will be presented with an interface to select the correct mappings from a list of suggested mappings. Thus the actual mapping process remains manual. 
 
-#### Step 4: Download Mapping Results
+#### Step 5: Download Mapping Results
 
 Once the mapping process has been completed. Each study that has been fully mapped will be available for download as a .csv file. The mapping result is simply a table mapping each dataset variable name to a corresponding codebook variable name. 
 
+---
 
-## How it works:
-The Metadata Harmonisation Interface compromises of two key parts:
+## 💡 How it works
 
-First the LLM-based description generator provides a way to quickly and easily extract variable description information from complex free text documents such as study protocols or journal articles. While in an ideal world descriptions should come from a codebook and should match to standardised ontologies, in our experience this is often not the case. The description generator works by taking in a PDF document and converting it to plain text using the pdfminer python package. Next, we use a text-splitter from the Llangchain suite of python functions.  This works by recursively  splitting the text by the special characters: "\n\n", "\n", " ” and "” until a text length of 1000 characters is reached. An overlap of 20 character between chunks is preserved to ensure no information is lost between chunks. A text embedding model is then used to get a vector representation of each chunk. This information is stored as a simple Numpy array.  Next a prompt is constructed by taking an already completed variable and description pair and retrieving the most relevant context, calculated as the spatial distance between the chunk embeddings and the variable name embedding. A hard coded variable and description pair alongside the least relevant context is also included with a (?) appended to the description. This is an attempt to get the LLM to return some indication of whether the context has been useful. If no context is provided by the user a similar prompt pattern is followed without providing the LLM with context. 
+The Metadata Harmonisation Interface comprises two key parts:
 
-The next step in the process is the ontology recommendation engine. This again uses text embeddings to retrieve vector representations of variable names and descriptions for both the target codebook and incoming datasets. Recommendations are then calculated using the spatial distance between vectors weighted 80/20 to descriptions. The interface utilises DuckDB to retrieve these recommendations from plain csv files. 
+First, the **LLM-based description generator** provides a way to quickly and easily extract variable description information from complex free-text documents such as study protocols or journal articles. While in an ideal world, descriptions should come from a codebook and match standardised ontologies, this is often not the case. The description generator works by taking in a PDF document and converting it to plain text using the `pdfminer` python package. Next, we use a text-splitter from the LangChain suite of python functions. This works by recursively splitting the text by special characters (`\n\n`, `\n`, ` `) until a text length of 1000 characters is reached. An overlap of 20 characters between chunks is preserved to ensure no information is lost. An embedding model is then used to get a vector representation of each chunk. This information is stored as a simple Numpy array. A prompt is constructed by taking an already completed variable and description pair and retrieving the most relevant context, calculated as the spatial distance between the chunk embeddings and the variable name embedding.
 
+The second step is the **ontology recommendation engine**. This again uses text embeddings to retrieve vector representations of variable names and descriptions for both the target codebook and incoming datasets. Recommendations are then calculated using the spatial distance between vectors, weighted 80/20 to descriptions. The interface utilizes DuckDB to retrieve these recommendations from plain CSV files.
+
+---
+
+## ❓ Troubleshooting
+
+### Docker & Ollama Connection
+
+-   **Connection Failed Error**: If the application in Docker can't connect to Ollama, ensure `OLLAMA_BASE_URL` in your `.env` file is set correctly. For local development, it should be `http://host.docker.internal:11434`.
+-   **Check Container Logs**: If the app fails to start, check the logs for errors:
+    ```bash
+    docker logs metadata-harmonisation-tool
+    ```
+
+### General Ollama Issues
+
+-   **Is Ollama running?**: Verify the Ollama application is running on your host system.
+-   **Models not found?**: Run `ollama list` to confirm `llama3.1:8b` and `nomic-embed-text` are downloaded.
+-   **Firewall**: Ensure no firewall or antivirus software is blocking the connection to `http://localhost:11434`.
+
+---
+
+## 📄 License
 
 This work is licensed under a
 [Creative Commons Attribution-ShareAlike 4.0 International License][cc-by-sa].  [![CC BY-SA 4.0][cc-by-sa-image]][cc-by-sa]
