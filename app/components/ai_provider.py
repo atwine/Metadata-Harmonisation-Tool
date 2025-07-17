@@ -86,10 +86,54 @@ class AIProviderWrapper:
         """
         def _generate():
             try:
-                response = self.config.generate_chat_response(messages, **kwargs)
-                if not response:
+                client = self.config.get_client()
+                if not client:
+                    raise AIProviderError("Failed to get AI client")
+                
+                if self.config.provider == AIProvider.OLLAMA:
+                    response = client.chat(
+                        model=self.config.chat_model,
+                        messages=messages,
+                        **kwargs
+                    )
+                    content = response['message']['content']
+                elif self.config.provider == AIProvider.OPENAI:
+                    response = client.chat.completions.create(
+                        model=self.config.chat_model,
+                        messages=messages,
+                        **kwargs
+                    )
+                    content = response.choices[0].message.content
+                elif self.config.provider == AIProvider.ANTHROPIC:
+                    # Convert messages to Anthropic format
+                    system_msg = None
+                    user_messages = []
+                    for msg in messages:
+                        if msg['role'] == 'system':
+                            system_msg = msg['content']
+                        else:
+                            user_messages.append(msg)
+                    
+                    response = client.messages.create(
+                        model=self.config.chat_model,
+                        max_tokens=kwargs.get('max_tokens', 1000),
+                        system=system_msg,
+                        messages=user_messages
+                    )
+                    content = response.content[0].text
+                elif self.config.provider == AIProvider.AZURE_OPENAI:
+                    response = client.chat.completions.create(
+                        model=self.config.chat_model,
+                        messages=messages,
+                        **kwargs
+                    )
+                    content = response.choices[0].message.content
+                else:
+                    raise AIProviderError(f"Unsupported provider: {self.config.provider}")
+                
+                if not content:
                     raise AIProviderError("Empty response received from provider")
-                return response
+                return content
             except Exception as e:
                 raise AIProviderError(f"Chat response generation failed: {str(e)}")
         
@@ -110,7 +154,34 @@ class AIProviderWrapper:
         """
         def _generate():
             try:
-                embedding = self.config.generate_embedding(text)
+                client = self.config.get_client()
+                if not client:
+                    raise AIProviderError("Failed to get AI client")
+                
+                if self.config.provider == AIProvider.OLLAMA:
+                    response = client.embeddings(
+                        model=self.config.embedding_model,
+                        prompt=text
+                    )
+                    embedding = response['embedding']
+                elif self.config.provider == AIProvider.OPENAI:
+                    response = client.embeddings.create(
+                        model=self.config.embedding_model,
+                        input=text
+                    )
+                    embedding = response.data[0].embedding
+                elif self.config.provider == AIProvider.ANTHROPIC:
+                    # Anthropic doesn't have embeddings API, use OpenAI-compatible fallback
+                    raise AIProviderError("Anthropic doesn't support embeddings")
+                elif self.config.provider == AIProvider.AZURE_OPENAI:
+                    response = client.embeddings.create(
+                        model=self.config.embedding_model,
+                        input=text
+                    )
+                    embedding = response.data[0].embedding
+                else:
+                    raise AIProviderError(f"Unsupported provider: {self.config.provider}")
+                
                 if not embedding:
                     raise AIProviderError("Empty embedding received from provider")
                 return embedding
