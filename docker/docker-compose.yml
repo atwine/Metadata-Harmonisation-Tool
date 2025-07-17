@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  metadata-harmonisation-tool:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: metadata-harmonisation-tool:latest
+    container_name: metadata-harmonisation-tool
+    ports:
+      - "8501:8501"
+    environment:
+      # Streamlit configuration
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+      
+      # AI Provider configurations (override with .env file)
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      
+      # Application settings
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount input and output directories for data persistence
+      - ../input:/app/input:ro
+      - ../output:/app/output
+      - ../logs:/app/logs
+      
+      # Mount source code for development (comment out for production)
+      - ../app:/app/app
+      - ../config.py:/app/config.py
+      
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - metadata-network
+
+  # Optional: Ollama service for local AI processing
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - metadata-network
+    profiles:
+      - ollama  # Use with: docker-compose --profile ollama up
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  metadata-network:
+    driver: bridge

@@ -1,0 +1,66 @@
+version: '3.8'
+
+# Development-specific Docker Compose configuration
+# Usage: docker-compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up
+
+services:
+  metadata-harmonisation-tool:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime  # Use runtime stage for development
+    volumes:
+      # Development volume mounts for live code editing
+      - ../app:/app/app
+      - ../config.py:/app/config.py
+      - ../requirements.txt:/app/requirements.txt
+      - ../input:/app/input
+      - ../output:/app/output
+      - ../logs:/app/logs
+      
+      # Mount test files for development
+      - ../test_ai_functionality.py:/app/test_ai_functionality.py
+      - ../test_integrated_components.py:/app/test_integrated_components.py
+      - ../test_error_handling.py:/app/test_error_handling.py
+      
+    environment:
+      # Development environment variables
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=auto  # Enable file watching for development
+      - STREAMLIT_SERVER_RUN_ON_SAVE=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_GLOBAL_DEVELOPMENT_MODE=true
+      
+    command: >
+      sh -c "
+        echo 'Starting in development mode...' &&
+        streamlit run app/app.py --server.address=0.0.0.0 --server.port=8501 --server.fileWatcherType=auto
+      "
+    
+    # Override restart policy for development
+    restart: "no"
+    
+    # Add development-specific labels
+    labels:
+      - "dev.environment=development"
+      - "dev.hot-reload=enabled"
+
+  # Development database for testing (optional)
+  dev-db:
+    image: postgres:15-alpine
+    container_name: metadata-dev-db
+    environment:
+      - POSTGRES_DB=metadata_dev
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_db_data:/var/lib/postgresql/data
+    networks:
+      - metadata-network
+    profiles:
+      - database  # Use with: docker-compose --profile database up
+
+volumes:
+  dev_db_data:
+    driver: local

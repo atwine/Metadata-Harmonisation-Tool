@@ -133,12 +133,34 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.staging
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+.docker/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+tmp/
+
+# Output and generated files
+output/
+backups/
 
 # Spyder project settings
 .spyderproject
