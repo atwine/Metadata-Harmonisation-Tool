@@ -42,11 +42,16 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY . .
 
 # Create necessary directories and set permissions
-RUN mkdir -p /app/input /app/output /app/logs && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/input /app/output /app/logs /home/appuser/.streamlit && \
+    chown -R appuser:appuser /app /home/appuser
 
 # Switch to non-root user
 USER appuser
+
+# Set Streamlit configuration to avoid permission issues
+ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+ENV STREAMLIT_GLOBAL_DEVELOPMENT_MODE=false
+ENV STREAMLIT_GLOBAL_SUPPRESS_WARNING=true
 
 # Expose Streamlit port
 EXPOSE 8501

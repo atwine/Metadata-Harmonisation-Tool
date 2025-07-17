@@ -92,12 +92,21 @@ def delete_files_and_folders(directory_path):
         directory_path (str): Path to the directory to be cleared.
     """
     if fs.exists(directory_path):
-        files_and_dirs = fs.ls(directory_path)
-        for item in files_and_dirs:
-            if fs.isdir(item):
-                fs.rm(item, recursive=True)
-            else:
-                fs.rm(item)
+        try:
+            files_and_dirs = fs.ls(directory_path)
+            for item in files_and_dirs:
+                try:
+                    if fs.isdir(item):
+                        fs.rm(item, recursive=True)
+                    else:
+                        fs.rm(item)
+                except Exception as e:
+                    # Log the error but continue with other files
+                    print(f"Warning: Could not delete {item}: {str(e)}")
+                    continue
+        except Exception as e:
+            # Log the error but don't crash the application
+            print(f"Warning: Could not access directory {directory_path}: {str(e)}")
 
 def modify_env(key, value=None, delete=False):
     """

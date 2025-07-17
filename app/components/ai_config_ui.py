@@ -5,6 +5,7 @@ This module provides Streamlit UI components for configuring AI providers,
 including provider selection, API key input, model selection, and connection testing.
 """
 
+import os
 import streamlit as st
 from typing import Optional, Dict, Any
 from config import ModelConfig, AIProvider
@@ -58,9 +59,11 @@ class AIConfigUI:
         col1, col2 = st.columns(2)
         
         with col1:
+            # Load from environment variable, fallback to localhost for development
+            default_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
             base_url = st.text_input(
                 "Base URL",
-                value="http://localhost:11434",
+                value=default_base_url,
                 help="Ollama server URL"
             )
         

@@ -15,6 +15,9 @@ services:
       - STREAMLIT_SERVER_ENABLE_CORS=false
       - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
       - STREAMLIT_SERVER_FILE_WATCHER_TYPE=none
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_GLOBAL_DEVELOPMENT_MODE=false
+      - STREAMLIT_GLOBAL_SUPPRESS_WARNING=true
       
       # AI Provider configurations (override with .env file)
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -28,7 +31,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       # Mount input and output directories for data persistence
-      - ../input:/app/input:ro
+      - ../input:/app/input
       - ../output:/app/output
       - ../logs:/app/logs
       
