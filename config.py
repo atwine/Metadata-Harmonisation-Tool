@@ -35,10 +35,17 @@ class ModelConfig:
         self.api_key = None
         self.base_url = None
         self.client = None
+        # Default request timeout (seconds) for provider calls
+        self.request_timeout: int | None = 30
         
     def setup_from_env(self):
         """Load configuration from environment variables"""
         provider = os.getenv('AI_PROVIDER', 'ollama').lower()
+        # Optional timeout from env
+        try:
+            self.request_timeout = int(os.getenv('AI_REQUEST_TIMEOUT', '30'))
+        except Exception:
+            self.request_timeout = 30
         
         if provider == 'ollama':
             self.provider = AIProvider.OLLAMA
@@ -70,7 +77,7 @@ class ModelConfig:
         """Load configuration from Streamlit session state/UI"""
         if 'ai_config' not in st.session_state:
             st.session_state.ai_config = {}
-            
+        
         config = st.session_state.ai_config
         
         self.provider = AIProvider(config.get('provider', 'ollama'))
@@ -78,6 +85,11 @@ class ModelConfig:
         self.embedding_model = config.get('embedding_model', '')
         self.api_key = config.get('api_key', '')
         self.base_url = config.get('base_url', '')
+        # Timeout may be set by UI; fall back to env/default if not present
+        try:
+            self.request_timeout = int(config.get('request_timeout', self.request_timeout or 30))
+        except Exception:
+            self.request_timeout = 30
         
     def get_client(self):
         """Initialize and return the appropriate AI client"""

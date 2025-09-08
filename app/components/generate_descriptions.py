@@ -6,13 +6,23 @@ from pdfminer.high_level import extract_text
 import re
 from scipy import spatial
 from dotenv import dotenv_values
-from .util import get_ollama_client, get_ai_provider, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL
+import streamlit as st
+from .util import (
+    get_ollama_client,
+    get_ai_provider,
+    OLLAMA_CHAT_MODEL,
+    OLLAMA_EMBEDDING_MODEL,
+    call_with_timeout,
+    retry_with_backoff,
+)
 from .ai_provider import AIProviderError
+import logging
 
 results_path = "results"
 input_path = "input"
 
 fs = fsspec.filesystem("")
+logger = logging.getLogger(__name__)
 
 def get_index(list_in, n, by):
     """
@@ -70,7 +80,13 @@ def get_embedding(text, model=None):
         try:
             return ai_provider.generate_embedding(text)
         except AIProviderError as e:
-            print(f"Error generating embedding with AI provider: {e}")
+            # Show a user-friendly message
+            try:
+                friendly = ai_provider.handle_provider_error(e)
+            except Exception:
+                friendly = str(e)
+            st.error(f"Embedding error: {friendly} (ERR-EMBED-PROVIDER)")
+            logger.error("Provider embedding error", exc_info=True)
             # Fall through to legacy method
     
     # Fallback to legacy Ollama client
@@ -80,10 +96,22 @@ def get_embedding(text, model=None):
     
     try:
         embedding_model = model or OLLAMA_EMBEDDING_MODEL
-        response = ollama_client.embeddings(model=embedding_model, prompt=text)
+        timeout_seconds = 30
+        if ai_provider and getattr(ai_provider, 'request_timeout', None):
+            timeout_seconds = ai_provider.request_timeout
+
+        def do_embed():
+            return ollama_client.embeddings(model=embedding_model, prompt=text)
+
+        response = retry_with_backoff(lambda: call_with_timeout(do_embed, timeout_seconds))
         return response.get('embedding')
+    except TimeoutError as e:
+        st.error(f"Embedding request timed out after {timeout_seconds}s. (ERR-EMBED-TIMEOUT)")
+        logger.error("Ollama embedding timeout", exc_info=True)
+        return None
     except Exception as e:
-        print(f"Error generating Ollama embedding: {e}")
+        st.error(f"Error generating Ollama embedding: {e} (ERR-EMBED-OLLAMA)")
+        logger.error("Ollama embedding error", exc_info=True)
         return None
 
 def split_text_recursively(text: str, chunk_size: int = 1000) -> list[str]:
@@ -170,7 +198,12 @@ def get_llm_response(prompt):
             response = ai_provider.generate_chat_response(prompt)
             return f'*{response}'  # Add a * to indicate AI generation
         except AIProviderError as e:
-            print(f"AI provider chat completion failed: {e}")
+            try:
+                friendly = ai_provider.handle_provider_error(e)
+            except Exception:
+                friendly = str(e)
+            st.error(f"LLM error: {friendly} (ERR-LLM-PROVIDER)")
+            logger.error("Provider LLM error", exc_info=True)
             # Fall through to legacy method
     
     # Fallback to legacy Ollama client
@@ -179,11 +212,23 @@ def get_llm_response(prompt):
         raise ValueError("No AI provider available.")
     
     try:
-        response = ollama_client.chat(model=OLLAMA_CHAT_MODEL, messages=prompt)
+        timeout_seconds = 30
+        if ai_provider and getattr(ai_provider, 'request_timeout', None):
+            timeout_seconds = ai_provider.request_timeout
+
+        def do_chat():
+            return ollama_client.chat(model=OLLAMA_CHAT_MODEL, messages=prompt)
+
+        response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
         label = response['message']['content']
         return f'*{label}'  # Add a * to indicate AI generation
+    except TimeoutError:
+        st.error(f"LLM request timed out after {timeout_seconds}s. (ERR-LLM-TIMEOUT)")
+        logger.error("Ollama LLM timeout", exc_info=True)
+        return None
     except Exception as e:
-        print(f"Ollama chat completion failed: {e}")
+        st.error(f"Ollama chat completion failed: {e} (ERR-LLM-OLLAMA)")
+        logger.error("Ollama LLM error", exc_info=True)
         return None
 
 def generate_descriptions():

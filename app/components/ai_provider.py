@@ -13,6 +13,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from config import ModelConfig, AIProvider
 import streamlit as st
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ class AIProviderWrapper:
         self.config = config
         self.max_retries = 3
         self.retry_delay = 1.0  # seconds
+        # Default timeout per request (seconds)
+        self.request_timeout = getattr(self.config, 'request_timeout', 30) or 30
         
     def _retry_with_backoff(self, func, *args, **kwargs):
         """
@@ -69,6 +72,16 @@ class AIProviderWrapper:
                     logger.error(f"All {self.max_retries} attempts failed")
                     
         raise AIProviderError(f"Operation failed after {self.max_retries} attempts: {str(last_exception)}")
+
+    def _with_timeout(self, func, timeout_seconds: int, *args, **kwargs):
+        """Run a callable with a timeout using a thread executor."""
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(func, *args, **kwargs)
+            try:
+                return future.result(timeout=timeout_seconds)
+            except FuturesTimeout:
+                future.cancel()
+                raise AIProviderError(f"Request timed out after {timeout_seconds} seconds")
     
     def generate_chat_response(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """
@@ -137,7 +150,7 @@ class AIProviderWrapper:
             except Exception as e:
                 raise AIProviderError(f"Chat response generation failed: {str(e)}")
         
-        return self._retry_with_backoff(_generate)
+        return self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
     
     def generate_embedding(self, text: str) -> List[float]:
         """
@@ -188,7 +201,7 @@ class AIProviderWrapper:
             except Exception as e:
                 raise AIProviderError(f"Embedding generation failed: {str(e)}")
         
-        return self._retry_with_backoff(_generate)
+        return self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
     
     def generate_embeddings_batch(self, texts: List[str], batch_size: int = 10) -> List[List[float]]:
         """

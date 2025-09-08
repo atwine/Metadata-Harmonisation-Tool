@@ -2,7 +2,9 @@ import pandas as pd
 import fsspec
 import time
 import ollama
-from .util import get_ai_provider, get_ollama_client
+import streamlit as st
+import logging
+from .util import get_ai_provider, get_ollama_client, call_with_timeout, retry_with_backoff
 from .ai_provider import AIProviderError
 
 
@@ -11,6 +13,7 @@ input_path = "input"
 preprocess_path = "preprocess"
 
 fs = fsspec.filesystem("")
+logger = logging.getLogger(__name__)
 
 def return_categorical_prompt(source_var, target_var, initial_instructions, examples, categories):
     prompts = [{"role": "user", "content": """
@@ -119,16 +122,37 @@ def get_llm_response(prompt):
         try:
             return ai_provider.generate_chat_response(prompt)
         except AIProviderError as e:
-            print(f"AI provider chat completion failed: {e}")
+            # Provide user-friendly feedback in the UI
+            try:
+                friendly = ai_provider.handle_provider_error(e)
+            except Exception:
+                friendly = str(e)
+            st.error(f"LLM error: {friendly} (ERR-LLM-PROVIDER)")
+            st.info("Tips: Verify provider credentials and model names, check internet or Ollama status, or increase the request timeout in AI Configuration.")
+            logger.error("AI provider chat completion failed", exc_info=True)
             # Fall through to legacy method
     
     # Fallback to legacy Ollama client
     try:
         client = get_ollama_client() or ollama.Client()
-        response = client.chat(model='llama3.1:8b', messages=prompt)
+        # Use provider-configured timeout if available
+        timeout_seconds = 30
+        if ai_provider and getattr(ai_provider, 'request_timeout', None):
+            timeout_seconds = ai_provider.request_timeout
+
+        def do_chat():
+            return client.chat(model='llama3.1:8b', messages=prompt)
+
+        response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
         return response['message']['content']
+    except TimeoutError:
+        st.error(f"LLM request timed out after {timeout_seconds}s. (ERR-LLM-TIMEOUT)")
+        logger.error("Ollama chat timeout", exc_info=True)
+        return None
     except Exception as e:
-        print(f"Failed to get response from Ollama: {e}")
+        st.error(f"Failed to get response from Ollama: {e} (ERR-LLM-OLLAMA)")
+        st.info("Tips: Ensure Ollama is running, models are pulled (e.g., llama3.1:8b), and the server URL/port are correct. You may increase timeout in AI Configuration.")
+        logger.error("Ollama chat fallback failed", exc_info=True)
         return None
     
 def generate_transformations(target_var, source_var, examples, initial_instructions, codebook):

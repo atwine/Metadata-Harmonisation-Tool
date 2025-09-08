@@ -359,7 +359,22 @@ class AIConfigUI:
             
             # Store in session state
             st.session_state[self.session_key] = config
-            
+
+            # Global request timeout configuration
+            st.markdown("#### ⏱️ Request Timeout")
+            timeout_val = st.number_input(
+                "Request timeout (seconds)",
+                min_value=5,
+                max_value=120,
+                value=int(getattr(config, 'request_timeout', 30) or 30),
+                help="Maximum time to wait for AI provider responses before timing out"
+            )
+            # Persist timeout on the ModelConfig
+            try:
+                config.request_timeout = int(timeout_val)
+            except Exception:
+                config.request_timeout = 30
+
             # Render connection test
             self.render_connection_test(config)
             

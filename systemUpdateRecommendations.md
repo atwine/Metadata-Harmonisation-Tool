@@ -331,21 +331,21 @@ def render_mapping_interface():
     - [x] Display allowed operations help text
 
 - [ ] **Add comprehensive error handling**
-  - [ ] Implement timeout handling for AI calls
-    - [ ] Add asyncio timeout wrapper for all AI provider calls
-    - [ ] Set default timeout to 30 seconds
-    - [ ] Add timeout configuration in AI config UI
-    - [ ] Handle TimeoutError with user-friendly messages
-  - [ ] Add retry mechanisms with exponential backoff
-    - [ ] Create @retry decorator with configurable attempts
-    - [ ] Implement exponential backoff (1s, 2s, 4s delays)
-    - [ ] Add retry logic to generate_transformations.py
-    - [ ] Add retry logic to generate_descriptions.py
-  - [ ] Improve error messaging throughout UI
-    - [ ] Replace generic error messages with specific guidance
-    - [ ] Add error codes for different failure types
-    - [ ] Create error recovery suggestions
-    - [ ] Add error logging for debugging
+  - [x] Implement timeout handling for AI calls
+    - [x] Add asyncio timeout wrapper for all AI provider calls
+    - [x] Set default timeout to 30 seconds
+    - [x] Add timeout configuration in AI config UI
+    - [x] Handle TimeoutError with user-friendly messages
+  - [x] Add retry mechanisms with exponential backoff
+    - [x] Create @retry decorator with configurable attempts
+    - [x] Implement exponential backoff (1s, 2s, 4s delays)
+    - [x] Add retry logic to generate_transformations.py
+    - [x] Add retry logic to generate_descriptions.py
+  - [x] Improve error messaging throughout UI
+    - [x] Replace generic error messages with specific guidance
+    - [x] Add error codes for different failure types
+    - [x] Create error recovery suggestions
+    - [x] Add error logging for debugging
 
 - [ ] **Fix auto-generation bugs**
   - [ ] Add codebook row validation

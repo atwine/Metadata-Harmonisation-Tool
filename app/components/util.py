@@ -3,9 +3,11 @@ import fsspec
 import ollama
 import pandas as pd
 import ast
-from typing import Optional
+from typing import Optional, Callable, Any
 from .ai_provider import get_ai_provider_from_session, AIProviderWrapper
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,52 @@ def get_ai_provider() -> Optional[AIProviderWrapper]:
         AIProviderWrapper instance or None if not configured
     """
     return get_ai_provider_from_session()
+
+# --- Timeout & Retry Utilities ---
+def call_with_timeout(func: Callable[..., Any], timeout_seconds: int, *args, **kwargs) -> Any:
+    """
+    Execute a callable with a timeout using a thread executor.
+
+    Raises TimeoutError if the function does not return within timeout_seconds.
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except FuturesTimeout:
+            # Cancel if still running to free resources
+            future.cancel()
+            raise TimeoutError(f"Operation timed out after {timeout_seconds} seconds")
+
+
+def retry_with_backoff(func: Callable[..., Any], *args, max_attempts: int = 3, base_delay: float = 1.0, **kwargs) -> Any:
+    """
+    Retry a function with exponential backoff on exception.
+    """
+    last_exc = None
+    for attempt in range(max_attempts):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            last_exc = e
+            if attempt < max_attempts - 1:
+                delay = base_delay * (2 ** attempt)
+                time.sleep(delay)
+            else:
+                break
+    # After exhausting attempts, re-raise last exception
+    raise last_exc
+
+
+def retry(max_attempts: int = 3, base_delay: float = 1.0):
+    """
+    Decorator to retry a function with exponential backoff.
+    """
+    def decorator(func: Callable[..., Any]):
+        def wrapper(*args, **kwargs):
+            return retry_with_backoff(func, *args, max_attempts=max_attempts, base_delay=base_delay, **kwargs)
+        return wrapper
+    return decorator
 
 def get_ollama_client():
     """
