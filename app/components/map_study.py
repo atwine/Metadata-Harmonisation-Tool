@@ -6,7 +6,7 @@ import time
 import numpy as np
 from dotenv import dotenv_values
 from .generate_transformations import generate_transformations
-from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion
+from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion, validate_expression
 from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations
 
 fs = fsspec.filesystem("")
@@ -289,6 +289,17 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                         if transformation_type == 'Direct':
                             source_dtype = st.selectbox('Source data type:', dtype_options)
                             target_dtype = st.selectbox('Target data type:', dtype_options, index=target_dtype_idx)
+                            # Provide real-time validation feedback for Direct expressions
+                            st.caption('Allowed operations: +, -, *, /; variable: x (e.g., x/12, x*2, x-5)')
+                            if transformation_instruction_final:
+                                try:
+                                    is_valid, msg = validate_expression(transformation_instruction_final)
+                                    if is_valid:
+                                        st.success(msg)
+                                    else:
+                                        st.error(f"Invalid expression: {msg}")
+                                except Exception as e:
+                                    st.error(f"Validation error: {e}")
                         else:
                             source_dtype = None
                             target_dtype = None

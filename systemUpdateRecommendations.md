@@ -316,19 +316,19 @@ def render_mapping_interface():
 **Priority: CRITICAL**
 
 - [ ] **Replace eval() with safe expression evaluator**
-  - [ ] Create SafeEvaluator class structure
-    - [ ] Define allowed operators (add, subtract, multiply, divide)
-    - [ ] Implement AST parsing for expressions
-    - [ ] Add context variable support (x, constants)
-    - [ ] Create error handling for invalid expressions
-  - [ ] Update transformation_utils.py
-    - [ ] Replace `eval(x_str)` in `generic_direct_conversion()`
-    - [ ] Add SafeEvaluator import and initialization
-    - [ ] Test with existing transformation examples
-  - [ ] Add expression validation UI
-    - [ ] Create expression syntax validator
-    - [ ] Add real-time validation feedback in mapping interface
-    - [ ] Display allowed operations help text
+  - [x] Create SafeEvaluator class structure
+    - [x] Define allowed operators (add, subtract, multiply, divide)
+    - [x] Implement AST parsing for expressions
+    - [x] Add context variable support (x, constants)
+    - [x] Create error handling for invalid expressions
+  - [x] Update transformation_utils.py
+    - [x] Replace `eval(x_str)` in `generic_direct_conversion()`
+    - [x] Add SafeEvaluator import and initialization
+    - [x] Test with existing transformation examples
+  - [x] Add expression validation UI
+    - [x] Create expression syntax validator
+    - [x] Add real-time validation feedback in mapping interface
+    - [x] Display allowed operations help text
 
 - [ ] **Add comprehensive error handling**
   - [ ] Implement timeout handling for AI calls
