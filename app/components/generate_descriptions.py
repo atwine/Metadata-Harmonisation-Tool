@@ -78,7 +78,8 @@ def get_embedding(text, model=None):
     ai_provider = get_ai_provider()
     if ai_provider:
         try:
-            return ai_provider.generate_embedding(text)
+            with st.spinner("Computing embedding with AI..."):
+                return ai_provider.generate_embedding(text)
         except AIProviderError as e:
             # Show a user-friendly message
             try:
@@ -103,8 +104,9 @@ def get_embedding(text, model=None):
         def do_embed():
             return ollama_client.embeddings(model=embedding_model, prompt=text)
 
-        response = retry_with_backoff(lambda: call_with_timeout(do_embed, timeout_seconds))
-        return response.get('embedding')
+        with st.spinner("Computing embedding with Ollama..."):
+            response = retry_with_backoff(lambda: call_with_timeout(do_embed, timeout_seconds))
+            return response.get('embedding')
     except TimeoutError as e:
         st.error(f"Embedding request timed out after {timeout_seconds}s. (ERR-EMBED-TIMEOUT)")
         logger.error("Ollama embedding timeout", exc_info=True)
@@ -195,7 +197,8 @@ def get_llm_response(prompt):
     ai_provider = get_ai_provider()
     if ai_provider:
         try:
-            response = ai_provider.generate_chat_response(prompt)
+            with st.spinner("Generating description with AI..."):
+                response = ai_provider.generate_chat_response(prompt)
             return f'*{response}'  # Add a * to indicate AI generation
         except AIProviderError as e:
             try:
@@ -219,9 +222,10 @@ def get_llm_response(prompt):
         def do_chat():
             return ollama_client.chat(model=OLLAMA_CHAT_MODEL, messages=prompt)
 
-        response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
-        label = response['message']['content']
-        return f'*{label}'  # Add a * to indicate AI generation
+        with st.spinner("Generating description with Ollama..."):
+            response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
+            label = response['message']['content']
+            return f'*{label}'  # Add a * to indicate AI generation
     except TimeoutError:
         st.error(f"LLM request timed out after {timeout_seconds}s. (ERR-LLM-TIMEOUT)")
         logger.error("Ollama LLM timeout", exc_info=True)

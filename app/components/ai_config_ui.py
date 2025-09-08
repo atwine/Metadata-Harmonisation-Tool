@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any
 from config import ModelConfig, AIProvider
 from .ai_provider import create_ai_provider, AIProviderError
 import logging
+from .monitor import get_ai_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -380,6 +381,27 @@ class AIConfigUI:
             
             # Render provider info
             self.render_provider_info(config)
+            
+            # Render simple AI usage metrics
+            try:
+                monitor = get_ai_monitor()
+                stats = monitor.as_dict()
+                st.sidebar.markdown("#### 📊 AI Usage (Session)")
+                st.sidebar.write({
+                    'calls_total': stats.get('calls_total'),
+                    'chat_calls': stats.get('chat_calls'),
+                    'embed_calls': stats.get('embed_calls'),
+                    'success': stats.get('success'),
+                    'errors': stats.get('errors'),
+                    'prompt_tokens(~)': stats.get('prompt_tokens'),
+                    'completion_tokens(~)': stats.get('completion_tokens'),
+                    'success_rate(%)': stats.get('success_rate'),
+                })
+                if st.sidebar.button('Reset AI Usage Metrics'):
+                    monitor.reset()
+                    st.sidebar.success('AI usage metrics reset for this session.')
+            except Exception:
+                pass
             
             return config
             

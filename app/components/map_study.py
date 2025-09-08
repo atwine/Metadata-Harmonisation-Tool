@@ -247,7 +247,26 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                     
                     dtype_options = ['float', 'integer', 'string', 'boolean']
                     if auto_transform_available == 'yes':
-                        codebook_var_df = codebook[codebook['description'] == codebook_var]
+                        # Robustly match the selected codebook entry by description or variable name
+                        # Normalize both sides (trim + case-insensitive)
+                        norm_target = str(codebook_var).strip().casefold()
+                        candidates = [c for c in ['description', 'Description', 'variable_name', 'Variable', 'Variable Name'] if c in codebook.columns]
+                        if candidates:
+                            parts = []
+                            for col in candidates:
+                                try:
+                                    part = codebook[codebook[col].astype(str).str.strip().str.casefold() == norm_target]
+                                    if len(part):
+                                        parts.append(part)
+                                except Exception:
+                                    continue
+                            if parts:
+                                codebook_var_df = pd.concat(parts).drop_duplicates()
+                            else:
+                                codebook_var_df = codebook.iloc[0:0]
+                        else:
+                            # Fallback to original behavior if expected columns are missing
+                            codebook_var_df = codebook[codebook['description'] == codebook_var]
                         # Handle case when the filter returns no rows or multiple rows
                         if len(codebook_var_df) != 1:
                             # Safe default values when the expected row isn't found

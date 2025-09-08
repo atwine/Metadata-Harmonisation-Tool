@@ -382,15 +382,15 @@ def render_mapping_interface():
 ### Phase 2: Enhanced AI Integration (Weeks 3-4)
 **Priority: MEDIUM** *(Reduced from HIGH - utility focus)*
 
-- [ ] **Improve prompt engineering** *(Core utility feature)*
-  - [ ] Create domain-specific prompt templates
-    - [ ] Design medical/healthcare transformation prompts
-    - [ ] Create survey data transformation prompts
-    - [ ] Implement basic template selection
-  - [ ] Add few-shot learning examples
-    - [ ] Collect 5+ high-quality transformation examples per domain
-    - [ ] Create simple example database
-    - [ ] Implement basic example selection for prompts
+- [x] **Improve prompt engineering** *(Core utility feature)*
+  - [x] Create domain-specific prompt templates
+    - [x] Design medical/healthcare transformation prompts
+    - [x] Create survey data transformation prompts
+    - [x] Implement basic template selection
+  - [x] Add few-shot learning examples
+    - [x] Collect 5+ high-quality transformation examples per domain
+    - [x] Create simple example database
+    - [x] Implement basic example selection for prompts
 
 - [ ] **Basic AI monitoring** *(Simplified for utility use)*
   - [ ] Simple usage tracking

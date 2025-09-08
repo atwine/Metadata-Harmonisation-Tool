@@ -4,6 +4,7 @@ import time
 import ollama
 import streamlit as st
 import logging
+import os
 from .util import get_ai_provider, get_ollama_client, call_with_timeout, retry_with_backoff
 from .ai_provider import AIProviderError
 
@@ -15,95 +16,119 @@ preprocess_path = "preprocess"
 fs = fsspec.filesystem("")
 logger = logging.getLogger(__name__)
 
+def _get_prompt_domain() -> str:
+    """Select prompt domain via env var PROMPT_DOMAIN; defaults to 'medical'."""
+    return os.getenv('PROMPT_DOMAIN', 'medical').strip().lower()
+
+
+_SYSTEM_TEMPLATES = {
+    'medical': (
+        "You are a data harmonization assistant for medical/health datasets. "
+        "Generate precise, minimal transformations. For direct numeric conversions, "
+        "the only allowed operations are arithmetic on variable x using +, -, *, /. "
+        "Do not call functions, do not access attributes, do not use power (**) or strings. "
+        "Return only a Python expression like 'x/12' or 'x*2' when asked for direct conversions. "
+        "For categorical, return a Python dict literal with string keys mapping raw values to target categories."
+    ),
+    'survey': (
+        "You are a data harmonization assistant for survey datasets. Keep outputs simple and robust. "
+        "For direct numeric conversions, only arithmetic on x with +, -, *, /. No functions, no attributes, no power (**). "
+        "For categorical, return a Python dict literal with string keys (e.g., '1': 'Yes', '0': 'No')."
+    ),
+}
+
+
+def _few_shots(domain: str, mode: str) -> list:
+    """Return few-shot message pairs for domain and mode ('direct'|'categorical')."""
+    if domain == 'survey':
+        if mode == 'direct':
+            return [
+                {"role": "user", "content": "Convert income in thousands to income in units. Examples: [12, 7, 10]"},
+                {"role": "assistant", "content": "x*1000"},
+                {"role": "user", "content": "Keep age unchanged. Examples: [23, 45, 31]"},
+                {"role": "assistant", "content": "x"},
+                {"role": "user", "content": "Convert centimeters to meters. Examples: [170, 150, 165]"},
+                {"role": "assistant", "content": "x/100"},
+                {"role": "user", "content": "Scale satisfaction score (0-10) to percentage."},
+                {"role": "assistant", "content": "x*10"},
+                {"role": "user", "content": "Convert monthly expense to yearly."},
+                {"role": "assistant", "content": "x*12"},
+            ]
+        else:
+            return [
+                {"role": "user", "content": "Map response codes to Yes/No: raw values ['1','0','',None]"},
+                {"role": "assistant", "content": "{'1': 'Yes', '0': 'No'}"},
+                {"role": "user", "content": "Map Likert 1-5 to categories ['Very Low','Low','Neutral','High','Very High']"},
+                {"role": "assistant", "content": "{'1':'Very Low','2':'Low','3':'Neutral','4':'High','5':'Very High'}"},
+                {"role": "user", "content": "Map gender codes ['M','F','U'] to ['Male','Female']"},
+                {"role": "assistant", "content": "{'M':'Male','F':'Female'}"},
+                {"role": "user", "content": "Map consent ['Y','N'] to ['Yes','No']"},
+                {"role": "assistant", "content": "{'Y':'Yes','N':'No'}"},
+                {"role": "user", "content": "Map marital status ['1','2','3'] to ['Single','Married','Other']"},
+                {"role": "assistant", "content": "{'1':'Single','2':'Married','3':'Other'}"},
+            ]
+    else:  # medical default
+        if mode == 'direct':
+            return [
+                {"role": "user", "content": "Convert weight from kg to grams."},
+                {"role": "assistant", "content": "x*1000"},
+                {"role": "user", "content": "Convert glucose mg/dL to g/L."},
+                {"role": "assistant", "content": "x/100"},
+                {"role": "user", "content": "Keep heart rate unchanged."},
+                {"role": "assistant", "content": "x"},
+                {"role": "user", "content": "Convert months to years."},
+                {"role": "assistant", "content": "x/12"},
+                {"role": "user", "content": "Convert cm to m."},
+                {"role": "assistant", "content": "x/100"},
+            ]
+        else:
+            return [
+                {"role": "user", "content": "Map diagnosis code ['0','1'] to ['No','Yes']"},
+                {"role": "assistant", "content": "{'0':'No','1':'Yes'}"},
+                {"role": "user", "content": "Map smoker status ['Y','N'] to ['Yes','No']"},
+                {"role": "assistant", "content": "{'Y':'Yes','N':'No'}"},
+                {"role": "user", "content": "Map sex ['M','F'] to ['Male','Female']"},
+                {"role": "assistant", "content": "{'M':'Male','F':'Female'}"},
+                {"role": "user", "content": "Map outcome ['alive','dead'] to standardized ['Alive','Dead']"},
+                {"role": "assistant", "content": "{'alive':'Alive','dead':'Dead'}"},
+                {"role": "user", "content": "Map binary result ['positive','negative'] to ['Yes','No']"},
+                {"role": "assistant", "content": "{'positive':'Yes','negative':'No'}"},
+            ]
+
+
 def return_categorical_prompt(source_var, target_var, initial_instructions, examples, categories):
-    prompts = [{"role": "user", "content": """
-                                                Given these example values '[0.0, 1.0, nan, nan, nan, nan, nan, nan, nan, nan]'  from the source variable 'ECLAMPSIA'.
-
-                                                I would like to convert them to the target variable 'Eclampsia'  with the following categories: "'yes', 'no'". 
-
-                                                A human has provided these transformation instructions: '0: False, 1:True'. 
-
-                                                Please return a python dictionary to convert the values. the following function will be used:
-
-                                                def generic_catagorical_conversion(x, dictionary_str):
-                                                    dictionary_init = eval(dictionary_str)
-                                                    dictionary = {str(key): value for key, value in dictionary_init.items()} # convert all keys to string dtype
-                                                    x = str(x)
-                                                    if x in list(dictionary):
-                                                        return dictionary[x]
-                                                    else:
-                                                        return np.nan
-
-                                                please ensure your output (it will be returned via api) can be directly passed to the function as the dictionary_str argument. 
-                                                
-                                                The example values are just 10 random values, please ensure the instructions do not truncate or remove items from the dictionary that may not be present in the examples. 
-                                                """},
-                {"role": "assistant", "content": "{'0.0': 'no', '1.0': 'yes'}"},
-                {"role": "user", "content": f"""
-                                                Given these example values {examples}  from the source variable {source_var}.
-
-                                                I would like to convert them to the target variable {target_var}  with the following categories: {categories}. 
-
-                                                A human has provided these transformation instructions: {initial_instructions}. 
-
-                                                Please return a python dictionary to convert the values. the following function will be used:
-
-                                                def generic_catagorical_conversion(x, dictionary_str):
-                                                    dictionary_init = eval(dictionary_str)
-                                                    dictionary = .... # convert all keys to string dtype
-                                                    x = str(x)
-                                                    if x in list(dictionary):
-                                                        return dictionary[x]
-                                                    else:
-                                                        return np.nan
-
-                                                please ensure your output (it will be returned via api) can be directly passed to the function as the dictionary_str argument. 
-                                                
-                                                The example values are just 10 random values, please ensure the instructions do not truncate or remove items from the dictionary that may not be present in the examples. 
-                                            """}
-                ]
-    return prompts
+    domain = _get_prompt_domain()
+    sys_msg = _SYSTEM_TEMPLATES.get(domain, _SYSTEM_TEMPLATES['medical'])
+    shots = _few_shots(domain, 'categorical')
+    core = [{
+        "role": "user",
+        "content": (
+            f"Given example values {examples} from source variable '{source_var}'. "
+            f"Convert to target variable '{target_var}' with categories {categories}. "
+            f"Human-provided initial instructions: {initial_instructions}. "
+            "Return ONLY a Python dict literal with STRING keys mapping raw values to target categories. "
+            "Do not include code blocks or explanations."
+        )
+    }]
+    return [{"role": "system", "content": sys_msg}] + shots + core
 
 def return_direct_conversion_prompt(source_var, target_var, initial_instructions, examples, target_dtype, target_unit, target_example):
-    prompts = [{"role": "user", "content": """
-                                                Given these example values '[1.9, 1.57, 1.28, 1.67, 1.53, 1.79, 1.71, 1.49, 1.58, 1.49]'  from the source variable 'height (m)'.
-
-                                                I would like to convert them to the target variable 'Height' with the target unit cm and dtype 'float'. An example value is '179.0'
-
-                                                A human has provided these transformation instructions: 'multiply by 10' 
-
-                                                Please return a python commad to convert the values. the command will be passed as x_str to the following funciton:
-
-                                                def generic_direct_conversion(x, x_str, source_dtype, target_dtype):
-                                                    x = dtype_conversion(x, source_dtype)
-                                                    x = eval(x_str)
-                                                    return dtype_conversion(x, source_dtype)
-
-                                                please ensure your output (it will be returned via api) can be directly passed to the function as the x_str argument.
-                                                Do not try change the data type in your instructions this is handled within the generic_direct_conversion function. 
-                                                If the values should not be mutated return x. If the values need to be multiplied by 10 return x*10. If only the values before a / be preserved return x.split('/')[0]. 
-                                                """},
-                {"role": "assistant", "content": "x*10"},
-                {"role": "user", "content": f"""
-                                                Given these example values {examples}  from the source variable {source_var}.
-
-                                                I would like to convert them to the target variable {target_var} with the unit {target_unit} and dtype {target_dtype}. An example value is {target_example}
-
-                                                A human has provided these transformation instructions: {initial_instructions} 
-
-                                                Please return a python commad to convert the values. the command will be passed as x_str to the following funciton:
-
-                                                def generic_direct_conversion(x, x_str, source_dtype, target_dtype):
-                                                    x = dtype_conversion(x, source_dtype)
-                                                    x = eval(x_str)
-                                                    return dtype_conversion(x, source_dtype)
-
-                                                please ensure your output (it will be returned via api) can be directly passed to the function as the x_str argument.
-                                                Do not try change the data type in your instructions this is handled within the generic_direct_conversion function. 
-                                                If the values should not be mutated return x. If the values need to be multiplied by 10 return x*10. If only the values before a / be preserved return x.split('/')[0]. 
-                                            """}
-                ]
-    return prompts
+    domain = _get_prompt_domain()
+    sys_msg = _SYSTEM_TEMPLATES.get(domain, _SYSTEM_TEMPLATES['medical'])
+    shots = _few_shots(domain, 'direct')
+    core = [{
+        "role": "user",
+        "content": (
+            f"Given example values {examples} from source variable '{source_var}'. "
+            f"Convert them to target variable '{target_var}' with unit {target_unit} and dtype {target_dtype}. "
+            f"An example target value is {target_example}. "
+            f"Human-provided initial instructions: {initial_instructions}. "
+            "Return ONLY a Python expression using variable x and operators +, -, *, /. "
+            "Do not include function calls, string operations, attribute access, or power (**). "
+            "Examples: 'x', 'x*100', 'x/12'."
+        )
+    }]
+    return [{"role": "system", "content": sys_msg}] + shots + core
 
 def get_llm_response(prompt):
     """
@@ -116,44 +141,45 @@ def get_llm_response(prompt):
     Returns:
         str: The response from the LLM.
     """
-    # Try new AI provider system first
-    ai_provider = get_ai_provider()
-    if ai_provider:
-        try:
-            return ai_provider.generate_chat_response(prompt)
-        except AIProviderError as e:
-            # Provide user-friendly feedback in the UI
+    with st.spinner("Generating transformation with AI..."):
+        # Try new AI provider system first
+        ai_provider = get_ai_provider()
+        if ai_provider:
             try:
-                friendly = ai_provider.handle_provider_error(e)
-            except Exception:
-                friendly = str(e)
-            st.error(f"LLM error: {friendly} (ERR-LLM-PROVIDER)")
-            st.info("Tips: Verify provider credentials and model names, check internet or Ollama status, or increase the request timeout in AI Configuration.")
-            logger.error("AI provider chat completion failed", exc_info=True)
-            # Fall through to legacy method
-    
-    # Fallback to legacy Ollama client
-    try:
-        client = get_ollama_client() or ollama.Client()
-        # Use provider-configured timeout if available
-        timeout_seconds = 30
-        if ai_provider and getattr(ai_provider, 'request_timeout', None):
-            timeout_seconds = ai_provider.request_timeout
+                return ai_provider.generate_chat_response(prompt)
+            except AIProviderError as e:
+                # Provide user-friendly feedback in the UI
+                try:
+                    friendly = ai_provider.handle_provider_error(e)
+                except Exception:
+                    friendly = str(e)
+                st.error(f"LLM error: {friendly} (ERR-LLM-PROVIDER)")
+                st.info("Tips: Verify provider credentials and model names, check internet or Ollama status, or increase the request timeout in AI Configuration.")
+                logger.error("AI provider chat completion failed", exc_info=True)
+                # Fall through to legacy method
+        
+        # Fallback to legacy Ollama client
+        try:
+            client = get_ollama_client() or ollama.Client()
+            # Use provider-configured timeout if available
+            timeout_seconds = 30
+            if ai_provider and getattr(ai_provider, 'request_timeout', None):
+                timeout_seconds = ai_provider.request_timeout
 
-        def do_chat():
-            return client.chat(model='llama3.1:8b', messages=prompt)
+            def do_chat():
+                return client.chat(model='llama3.1:8b', messages=prompt)
 
-        response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
-        return response['message']['content']
-    except TimeoutError:
-        st.error(f"LLM request timed out after {timeout_seconds}s. (ERR-LLM-TIMEOUT)")
-        logger.error("Ollama chat timeout", exc_info=True)
-        return None
-    except Exception as e:
-        st.error(f"Failed to get response from Ollama: {e} (ERR-LLM-OLLAMA)")
-        st.info("Tips: Ensure Ollama is running, models are pulled (e.g., llama3.1:8b), and the server URL/port are correct. You may increase timeout in AI Configuration.")
-        logger.error("Ollama chat fallback failed", exc_info=True)
-        return None
+            response = retry_with_backoff(lambda: call_with_timeout(do_chat, timeout_seconds))
+            return response['message']['content']
+        except TimeoutError:
+            st.error(f"LLM request timed out after {timeout_seconds}s. (ERR-LLM-TIMEOUT)")
+            logger.error("Ollama chat timeout", exc_info=True)
+            return None
+        except Exception as e:
+            st.error(f"Failed to get response from Ollama: {e} (ERR-LLM-OLLAMA)")
+            st.info("Tips: Ensure Ollama is running, models are pulled (e.g., llama3.1:8b), and the server URL/port are correct. You may increase timeout in AI Configuration.")
+            logger.error("Ollama chat fallback failed", exc_info=True)
+            return None
     
 def generate_transformations(target_var, source_var, examples, initial_instructions, codebook):
     """

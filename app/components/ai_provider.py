@@ -14,6 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from config import ModelConfig, AIProvider
 import streamlit as st
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from .monitor import get_ai_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,20 @@ class AIProviderWrapper:
             except Exception as e:
                 raise AIProviderError(f"Chat response generation failed: {str(e)}")
         
-        return self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
+        # Monitoring: estimate prompt chars
+        try:
+            prompt_chars = sum(len(m.get('content', '')) for m in messages if isinstance(m, dict))
+        except Exception:
+            prompt_chars = 0
+        monitor = get_ai_monitor()
+
+        try:
+            content = self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
+            monitor.record_chat(prompt_chars=prompt_chars, completion_chars=len(content or ''), success=True)
+            return content
+        except AIProviderError:
+            monitor.record_chat(prompt_chars=prompt_chars, completion_chars=0, success=False)
+            raise
     
     def generate_embedding(self, text: str) -> List[float]:
         """
@@ -200,8 +214,14 @@ class AIProviderWrapper:
                 return embedding
             except Exception as e:
                 raise AIProviderError(f"Embedding generation failed: {str(e)}")
-        
-        return self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
+        monitor = get_ai_monitor()
+        try:
+            result = self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
+            monitor.record_embed(success=True)
+            return result
+        except AIProviderError:
+            monitor.record_embed(success=False)
+            raise
     
     def generate_embeddings_batch(self, texts: List[str], batch_size: int = 10) -> List[List[float]]:
         """

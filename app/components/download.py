@@ -66,20 +66,33 @@ def download_page():
                 )
             else:
                 # Build transformed outputs and ZIP package
+                steps_total = 5
+                progress = st.progress(0)
+                status = st.empty()
+
                 try:
+                    status.text("Loading original data...")
                     original_df = load_study_data(name)
+                    progress.progress(1/steps_total)
                 except Exception as e:
                     st.error(f"Cannot load original data for study '{name}': {e}")
                     return
                 try:
+                    status.text("Loading mapping results...")
                     mapping_df = load_mapping(name)
+                    progress.progress(2/steps_total)
                 except Exception as e:
                     st.error(f"Cannot load mapping results for study '{name}': {e}")
                     return
 
+                status.text("Applying transformations...")
                 transformed_df, metrics, warnings = apply_transformations(original_df, mapping_df)
+                progress.progress(3/steps_total)
+
+                status.text("Building reports...")
                 mapping_summary = build_mapping_summary(mapping_df)
                 validation_report = generate_validation_report(metrics, warnings)
+                progress.progress(4/steps_total)
 
                 # Preview transformed data
                 st.markdown("#### Preview: transformed data (first 20 rows)")
@@ -113,10 +126,15 @@ def download_page():
                     zf.writestr('summary.txt', summary_txt_str)
                 memfile.seek(0)
 
+                status.text("Packaging files...")
+                progress.progress(5/steps_total)
+                st.success("Export package is ready.")
+
                 st.download_button(
                     label="Download full data package (ZIP)",
                     data=memfile.getvalue(),
                     file_name=f'{name}_data_package.zip',
                     mime='application/zip',
                 )
+                status.empty()
 
