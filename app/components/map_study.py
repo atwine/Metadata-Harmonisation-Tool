@@ -73,6 +73,8 @@ def write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, 
     df_updated = df_updated.drop_duplicates(subset=['study_var'], keep='last')
     df_updated.to_csv(results_file, index=False)
     add_to_session_state(study, patient_id_var, date_var)
+    # Success confirmation for completed action
+    st.success('Mapping saved successfully.')
 
 def test_transformation(example_data, transformation_type, transformation_instructions, source_dtype, target_dtype):
     """
@@ -90,18 +92,33 @@ def test_transformation(example_data, transformation_type, transformation_instru
     else:
         if transformation_type == 'Direct':
             try:
-                transformed_data = [generic_direct_conversion(x, transformation_instructions, source_dtype, target_dtype) for x in example_data]
-                transformed_data = format_example_data(transformed_data)
+                transformed_list = [generic_direct_conversion(x, transformation_instructions, source_dtype, target_dtype) for x in example_data]
+                transformed_data = format_example_data(transformed_list)
             except Exception as e:
                 transformed_data = f'Direct transformation failed with error: {e}'
         elif transformation_type == 'Categorical':
             try:
-                transformed_data = [generic_catagorical_conversion(x, transformation_instructions) for x in example_data]
-                transformed_data = format_example_data(transformed_data)
+                transformed_list = [generic_catagorical_conversion(x, transformation_instructions) for x in example_data]
+                transformed_data = format_example_data(transformed_list)
             except Exception as e:
                 transformed_data = f'Categorical transformation failed with error: {e}'
     st.write('Preview of transformation:')
     st.code(transformed_data)
+    # Clearer transformation preview: side-by-side for first 10 samples when available
+    try:
+        if isinstance(example_data, list) and isinstance(transformation_instructions, str) and transformed_data and 'failed with error' not in str(transformed_data):
+            original_list = [x for x in example_data][:10]
+            # Recompute a short transformed list for preview if not already present
+            if transformation_type == 'Direct':
+                preview_transformed = [generic_direct_conversion(x, transformation_instructions, source_dtype, target_dtype) for x in original_list]
+            elif transformation_type == 'Categorical':
+                preview_transformed = [generic_catagorical_conversion(x, transformation_instructions) for x in original_list]
+            else:
+                preview_transformed = original_list
+            preview_df = pd.DataFrame({'original': original_list, 'transformed': preview_transformed})
+            st.dataframe(preview_df, use_container_width=True)
+    except Exception:
+        pass
 
 def map_study(study, variables_status, show_about, original_order, relational_mode, enable_transformations):
     """
@@ -213,6 +230,8 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                             example_data = [str(x) for x in list(example_data.dropna())]
                             st.code(format_example_data(example_data))
                             example_avail = True
+                    else:
+                        st.warning('No example_data.csv found; transformation preview may be limited for this study.')
 
                 st.write('Please complete the form below:')
                 # append confidence to var name
@@ -244,6 +263,15 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                         codebook_conf = int(codebook_conf[:-1])
                     else:
                         codebook_conf = 0
+                    # Better visual confidence score display
+                    try:
+                        conf_col1, conf_col2 = st.columns([1,3])
+                        with conf_col1:
+                            st.metric('Match confidence', f"{codebook_conf}%")
+                        with conf_col2:
+                            st.progress(min(max(codebook_conf, 0), 100) / 100.0)
+                    except Exception:
+                        pass
                     
                     dtype_options = ['float', 'integer', 'string', 'boolean']
                     if auto_transform_available == 'yes':
@@ -360,8 +388,6 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
 
                     col3, col4 = st.columns(2)
                     with col3:
-                        transformation_instruction_final = st.text_input('Transformation instructions for this variable:', st.session_state.transformation_instructions.get(variable_to_map, ''), key='transformation_input')
-                        st.session_state.transformation_instructions[variable_to_map] = transformation_instruction_final
                         transformation_types = ['Direct', 'Categorical']
                         transformation_type = st.selectbox('Type of transformation applied to this variable:', transformation_types, index=transformation_type_idx)
                         if transformation_type == 'Direct':
@@ -369,15 +395,39 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                             target_dtype = st.selectbox('Target data type:', dtype_options, index=target_dtype_idx)
                             # Provide real-time validation feedback for Direct expressions
                             st.caption('Allowed operations: +, -, *, /; variable: x (e.g., x/12, x*2, x-5)')
-                            if transformation_instruction_final:
-                                try:
-                                    is_valid, msg = validate_expression(transformation_instruction_final)
-                                    if is_valid:
-                                        st.success(msg)
-                                    else:
-                                        st.error(f"Invalid expression: {msg}")
-                                except Exception as e:
-                                    st.error(f"Validation error: {e}")
+                            # Quick presets for common patterns (apply BEFORE creating text_input)
+                            preset_options = {
+                                'Choose a preset...': None,
+                                'Keep as is (x)': 'x',
+                                'Scale up x*100': 'x*100',
+                                'Scale down x/100': 'x/100',
+                                'Months → Years (x/12)': 'x/12',
+                                'Years → Months (x*12)': 'x*12',
+                            }
+                            preset_choice = st.selectbox('Quick preset:', list(preset_options.keys()))
+                            if preset_choice and preset_options[preset_choice] is not None and st.button('Apply preset', key='apply_preset'):
+                                preset_val = preset_options[preset_choice]
+                                # Update backing store and the widget state BEFORE instantiation
+                                st.session_state.transformation_instructions[variable_to_map] = preset_val
+                                st.session_state['transformation_input'] = preset_val
+                        # Ensure the widget key is initialized before creating the widget
+                        if 'transformation_input' not in st.session_state:
+                            st.session_state['transformation_input'] = st.session_state.transformation_instructions.get(variable_to_map, '')
+                        transformation_instruction_final = st.text_input(
+                            'Transformation instructions for this variable:',
+                            st.session_state.transformation_instructions.get(variable_to_map, ''),
+                            key='transformation_input'
+                        )
+                        st.session_state.transformation_instructions[variable_to_map] = transformation_instruction_final
+                        if transformation_type == 'Direct' and transformation_instruction_final:
+                            try:
+                                is_valid, msg = validate_expression(transformation_instruction_final)
+                                if is_valid:
+                                    st.success(msg)
+                                else:
+                                    st.error(f"Invalid expression: {msg}")
+                            except Exception as e:
+                                st.error(f"Validation error: {e}")
                         else:
                             source_dtype = None
                             target_dtype = None

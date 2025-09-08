@@ -8,17 +8,37 @@ def generic_catagorical_conversion(x, dictionary_str):
 
     Args:
         x (any): The value to convert.
-        dictionary_str (str): The dictionary as a string.
+        dictionary_str (str|dict): The dictionary as a string literal (e.g., "{'0':'No','1':'Yes'}") or a dict.
 
     Returns:
-        any: The converted value or NaN if conversion fails.
+        any: The converted value or NaN if not found.
+
+    Notes:
+        - Replaces unsafe eval() with ast.literal_eval and validates type to avoid runtime attribute errors
+          such as "'str' object has no attribute 'items'" when the instruction is not a dict.
     """
-    dictionary_init = eval(dictionary_str)
-    dictionary = {str(key): value for key, value in dictionary_init.items()} # convert all keys to string dtype
+    try:
+        # Accept either a dict literal string or a dict object
+        if isinstance(dictionary_str, str):
+            mapping_obj = ast.literal_eval(dictionary_str)
+        elif isinstance(dictionary_str, dict):
+            mapping_obj = dictionary_str
+        else:
+            raise ValueError("Categorical instruction must be a Python dict literal (string) or a dict.")
+
+        if not isinstance(mapping_obj, dict):
+            raise ValueError("Categorical instruction must be a Python dict literal like {'0':'No','1':'Yes'}.")
+
+        # Normalize keys to strings
+        dictionary = {str(key): value for key, value in mapping_obj.items()}
+    except Exception as e:
+        # Raise a clear error to be caught by the caller and shown to the user
+        raise ValueError(f"Invalid categorical mapping: {e}")
+
     x = str(x)
     if x in list(dictionary):
         out = dictionary[x]
-        if not out == None:
+        if out is not None:
             return out
         else:
             return np.nan
