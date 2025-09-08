@@ -419,6 +419,36 @@ def render_mapping_interface():
     - [x] Validation feedback for uploads
     - [x] Success confirmations for completed actions
 
+  - [ ] Improve Mapping Page Clarity & Guidance
+    - [ ] Microcopy and contextual help
+      - [ ] Add helper text for when to use Direct vs Categorical
+      - [ ] Add inline microcopy next to instruction fields
+        - [ ] Direct: “Use x with +, -, *, / (e.g., x/12, x*2, x-5)”
+        - [ ] Categorical: “Provide a Python dict like {'0':'No','1':'Yes'} with string keys”
+      - [ ] Add info tooltip for “Match confidence” explaining thresholds (80–100 strong, 60–79 review, <60 verify)
+    - [ ] Pattern examples and templates
+      - [ ] Direct: small “Examples” dropdown (x, x*100, x/12, x-5)
+      - [ ] Categorical: “Insert template” that generates a dict skeleton from top unique values
+    - [ ] Inline validation and recovery
+      - [ ] Categorical: parse with ast.literal_eval; show precise fix suggestions when invalid
+      - [ ] Direct: maintain SafeEvaluator; show rule violated and suggest simple fixes
+    - [ ] Preview that teaches
+      - [ ] Show Before → After table (first 10)
+      - [ ] Add a one-line summary: “Transformed N/M; K blanks”
+    - [ ] Confidence visualization clarity
+      - [ ] Keep meter and %; add color thresholds and tooltip text
+    - [ ] Accessibility & error copy
+      - [ ] Associate errors with inputs; use text + icon (not color-only); aria-live polite
+    - [ ] Lightweight onboarding
+      - [ ] “How do I choose?” link with 2 Direct and 2 Categorical examples; dismissible tip
+
+  References (for UX best practices):
+  - NN/g: 10 Design Guidelines for Reporting Errors in Forms — https://www.nngroup.com/articles/errors-forms-design-guidelines/
+  - NN/g: Error-Message Guidelines — https://www.nngroup.com/articles/error-message-guidelines/
+  - GOV.UK Design System: Error message — https://design-system.service.gov.uk/components/error-message/
+  - Baymard: Usability Testing of Inline Form Validation — https://baymard.com/blog/inline-form-validation
+  - W3C WAI: Validating Input — https://www.w3.org/WAI/tutorials/forms/validation/
+
 ### Phase 4: Data Quality & Testing (Weeks 7-8)
 **Priority: MEDIUM** *(Essential for reliable utility)*
 

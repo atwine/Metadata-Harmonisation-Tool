@@ -209,9 +209,18 @@ def reorder_lists(list1, list2, value):
 def split_var_confidence(mapped_value):
     """
     Splits a mapped value into variable and confidence parts.
+    Precedence is one-space ' - ' (used by pre_process_recomendations), with fallback to two-space '  - '.
+    Uses rsplit to avoid breaking when the variable name itself contains ' - '.
     """
-    parts = mapped_value.split('  - ')
-    return (parts[0], parts[1]) if len(parts) > 1 else (parts[0], None)
+    if not isinstance(mapped_value, str):
+        return mapped_value, None
+    if ' - ' in mapped_value:
+        left, right = mapped_value.rsplit(' - ', 1)
+        return left, right
+    if '  - ' in mapped_value:
+        left, right = mapped_value.rsplit('  - ', 1)
+        return left, right
+    return mapped_value, None
     
 def format_example_data(example_data):
     """
