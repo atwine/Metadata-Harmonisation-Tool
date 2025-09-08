@@ -347,37 +347,37 @@ def render_mapping_interface():
     - [x] Create error recovery suggestions
     - [x] Add error logging for debugging
 
-- [ ] **Fix auto-generation bugs**
-  - [ ] Add codebook row validation
-    - [ ] Check for unique description matches before calling generator
-    - [ ] Add validation in map_study.py before line 275
-    - [ ] Display clear error when multiple/no matches found
-    - [ ] Suggest codebook fixes to user
-  - [ ] Prevent None overwrites in session state
-    - [ ] Check for None return from generate_transformations()
-    - [ ] Only update session state with valid strings
-    - [ ] Preserve previous instructions on failure
-    - [ ] Add fallback to default instructions
-  - [ ] Add user-friendly error messages
-    - [ ] Create error message templates
-    - [ ] Add contextual help for common issues
-    - [ ] Include troubleshooting steps in error display
+- [x] **Fix auto-generation bugs**
+  - [x] Add codebook row validation
+    - [x] Check for unique description matches before calling generator
+    - [x] Add validation in map_study.py before line 275
+    - [x] Display clear error when multiple/no matches found
+    - [x] Suggest codebook fixes to user
+  - [x] Prevent None overwrites in session state
+    - [x] Check for None return from generate_transformations()
+    - [x] Only update session state with valid strings
+    - [x] Preserve previous instructions on failure
+    - [x] Add fallback to default instructions
+  - [x] Add user-friendly error messages
+    - [x] Create error message templates
+    - [x] Add contextual help for common issues
+    - [x] Include troubleshooting steps in error display
 
-- [ ] **Add data transformation and CSV export capability**
-  - [ ] Create data transformation engine
-    - [ ] Build function to apply transformations to full datasets
-    - [ ] Load original study data from `input/{study}/example_data.csv`
-    - [ ] Apply approved mappings and transformations from `results/{study}.csv`
-    - [ ] Handle missing transformation instructions gracefully
-  - [ ] Implement enhanced CSV export functionality
-    - [ ] Create multi-file CSV export (original_data.csv, transformed_data.csv, mapping_summary.csv)
-    - [ ] Add data validation and error reporting in separate validation_report.txt
-    - [ ] Include transformation metadata and confidence scores in mapping_summary.csv
-  - [ ] Update download.py interface
-    - [ ] Add enhanced CSV export option (ZIP package with multiple CSV files)
-    - [ ] Create preview of transformed data before export
-    - [ ] Add export format selection (mapping only vs full data package)
-    - [ ] Include export statistics in summary.txt (success rate, errors, warnings)
+ - [x] **Add data transformation and CSV export capability**
+  - [x] Create data transformation engine
+    - [x] Build function to apply transformations to full datasets
+    - [x] Load original study data from `input/{study}/example_data.csv`
+    - [x] Apply approved mappings and transformations from `results/{study}.csv`
+    - [x] Handle missing transformation instructions gracefully
+  - [x] Implement enhanced CSV export functionality
+    - [x] Create multi-file CSV export (original_data.csv, transformed_data.csv, mapping_summary.csv)
+    - [x] Add data validation and error reporting in separate validation_report.txt
+    - [x] Include transformation metadata and confidence scores in mapping_summary.csv
+  - [x] Update download.py interface
+    - [x] Add enhanced CSV export option (ZIP package with multiple CSV files)
+    - [x] Create preview of transformed data before export
+    - [x] Add export format selection (mapping only vs full data package)
+    - [x] Include export statistics in summary.txt (success rate, errors, warnings)
 
 ### Phase 2: Enhanced AI Integration (Weeks 3-4)
 **Priority: MEDIUM** *(Reduced from HIGH - utility focus)*

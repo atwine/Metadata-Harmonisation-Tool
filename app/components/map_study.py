@@ -272,7 +272,66 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                                 st.session_state.transformation_instructions[variable_to_map] = '{}'
                         generate_instructions = st.button('Auto Generate Transformation Instructions', key='generate')
                         if generate_instructions:
-                            st.session_state.transformation_instructions[variable_to_map] = generate_transformations(split_var_confidence(mapped_variable)[0], variable_to_map, example_data, st.session_state.transformation_instructions.get(variable_to_map, ''), codebook_var_df)
+                            # Validate codebook row uniqueness before calling generator
+                            # If the description does not uniquely identify a single codebook row, do not call the generator.
+                            if len(codebook_var_df) != 1:
+                                if len(codebook_var_df) == 0:
+                                    st.error("Auto-generation blocked: No unique codebook row found for the selected description. (ERR-CODEBOOK-NO-MATCH)")
+                                else:
+                                    st.error("Auto-generation blocked: Multiple codebook rows matched the selected description. (ERR-CODEBOOK-MULTI-MATCH)")
+                                st.info("Tips: Ensure descriptions in target_variables.csv are unique for each target variable, or select a different mapping. You may also refine the codebook to remove duplicates.")
+                            else:
+                                prev_instr = st.session_state.transformation_instructions.get(variable_to_map, '')
+                                try:
+                                    ai_result = generate_transformations(
+                                        split_var_confidence(mapped_variable)[0],
+                                        variable_to_map,
+                                        example_data,
+                                        prev_instr,
+                                        codebook_var_df
+                                    )
+                                except Exception as e:
+                                    ai_result = None
+                                    st.error(f"Auto-generation failed: {e} (ERR-AUTO-GEN-EXC)")
+                                # Only update session state with valid strings; otherwise preserve previous or fallback
+                                if isinstance(ai_result, str) and ai_result.strip():
+                                    if transformation_type_idx == 0:
+                                        # Direct expression must be valid
+                                        try:
+                                            is_valid, msg = validate_expression(ai_result)
+                                        except Exception as e:
+                                            is_valid, msg = (False, f"Validation error: {e}")
+                                        if is_valid:
+                                            st.session_state.transformation_instructions[variable_to_map] = ai_result
+                                            st.success("Auto-generated direct transformation applied.")
+                                        else:
+                                            st.error(f"Generated expression invalid: {msg} (ERR-AUTO-GEN-DIRECT-INVALID)")
+                                            if prev_instr:
+                                                st.info("Preserved previous instructions.")
+                                            else:
+                                                st.info("Using safe default 'x' as fallback.")
+                                                st.session_state.transformation_instructions[variable_to_map] = 'x'
+                                    else:
+                                        # Categorical: basic sanity check — must look like a dict string
+                                        txt = ai_result.strip()
+                                        if txt.startswith('{') and txt.endswith('}'):
+                                            st.session_state.transformation_instructions[variable_to_map] = ai_result
+                                            st.success("Auto-generated categorical mapping applied.")
+                                        else:
+                                            st.error("Generated categorical mapping is not a dictionary-like string. (ERR-AUTO-GEN-CAT-INVALID)")
+                                            if prev_instr:
+                                                st.info("Preserved previous instructions.")
+                                            else:
+                                                st.info("Using safe default '{}' as fallback.")
+                                                st.session_state.transformation_instructions[variable_to_map] = '{}'
+                                else:
+                                    st.error("No valid transformation was returned by the AI provider. (ERR-AUTO-GEN-NONE)")
+                                    if prev_instr:
+                                        st.info("Preserved previous instructions.")
+                                    else:
+                                        default_fallback = 'x' if transformation_type_idx == 0 else '{}'
+                                        st.info(f"Using safe default '{default_fallback}' as fallback.")
+                                        st.session_state.transformation_instructions[variable_to_map] = default_fallback
                     else:
                         generate_instructions = st.button('Auto Generate Transformation Instructions', key='generate', disabled=True, help='Auto transformations are not available for this study as the target codebook does not contain dType, Unit, Categories, or Unit Example columns.')
                         transformation_type_idx = 0
