@@ -27,21 +27,32 @@ st.set_page_config(layout="wide",
                    )
 
 with st.sidebar:
-
     st.write("## Mapping App")
     st.divider()
-    page = st.selectbox('Page', ["About", "Upload Codebook","Upload Studies", "Initialise", "Map Studies", "Download Results"])
-    
+    page = st.selectbox('Page', ["About", "Upload Codebook","Upload Studies", "Initialise", "Map Studies", "Download Results"]) 
+
+    # Study selector (above AI config for visibility)
+    if page == "Map Studies":
+        if fs.exists(f'input/'):
+            avail_studies = [f for f in fs.ls(f"{input_path}/") if fs.isdir(f)]
+            avail_studies = [f.split('/')[-1] for f in avail_studies if f.split('/')[-1][0] != '.']
+            avail_studies = sorted(avail_studies)
+            # Persist last selection
+            default_idx = 0
+            if 'selected_study' in st.session_state and st.session_state['selected_study'] in avail_studies:
+                try:
+                    default_idx = avail_studies.index(st.session_state['selected_study'])
+                except Exception:
+                    default_idx = 0
+            study = st.selectbox('Study', avail_studies, index=default_idx, key='study_selector')
+            st.session_state['selected_study'] = study
+            variables_status = st.selectbox('View variables:', mapping_options, key='variables_status')
+
     # AI Configuration UI
     st.divider()
     ai_config_ui.render_configuration_panel()
+    
     if page == "Map Studies":
-        if fs.exists(f'input/'):
-            avail_studies = []
-            avail_studies = [f for f in fs.ls(f"{input_path}/") if fs.isdir(f)]
-            avail_studies = [f.split('/')[-1] for f in avail_studies if f.split('/')[-1][0] != '.']
-            study = st.selectbox('Study', avail_studies)
-            variables_status = st.selectbox('View variables:',mapping_options)
         col1, col2 = st.columns(2)
         with col1:
             show_about = st.checkbox("About", value = False, help = 'Show an about section for the dataset you have selected.')
@@ -53,7 +64,6 @@ with st.sidebar:
         with col4:
             enable_transformations = st.checkbox('Transform Mode', value = True, help = 'This adds functionality to create and test transformations instructions for each variable. These instructions can then be used to transform data to a common format. Example transformation instructions available [here](https://github.com/csag-uct/Metadata-Harmonisation-Tool/pull/19#issuecomment-2356409576). Only available if example data is provided.')
     st.divider()
-    st.write('Please report any issues to the [GitHub repository](https://github.com/csag-uct/Metadata-Harmonisation-Tool) or contact peter.marsh@uct.ac.za for more information.')
 
 if page == 'About':
     about_page()

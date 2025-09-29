@@ -69,17 +69,8 @@ class AIConfigUI:
             )
         
         with col2:
-            # Test connection button
-            if st.button("🔍 Test Connection", key="ollama_test"):
-                try:
-                    import ollama
-                    client = ollama.Client(host=base_url)
-                    models = client.list()
-                    st.success(f"✅ Connected! Found {len(models.models)} models")
-                    st.session_state[self.test_key] = True
-                except Exception as e:
-                    st.error(f"❌ Connection failed: {str(e)}")
-                    st.session_state[self.test_key] = False
+            # Consolidated UX: use the unified Connection Test section below
+            st.caption("Use the Connection Test below to verify connectivity and models.")
         
         # Model selection
         chat_model = st.text_input(

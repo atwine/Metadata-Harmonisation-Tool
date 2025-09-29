@@ -1,0 +1,15 @@
+variable_name,description,dType,Unit,Categories,Unit Example
+Patient ID,Unique participant identifier,string,,,UG0001
+Date of Visit,Date of clinical visit,datetime,YYYY-MM-DD,,2024-07-01
+Sex,Recorded biological sex,string,,"Male; Female",Male
+Age Years,Age at visit,integer,years,,41
+Height,Standing height,float,cm,,171.0
+Weight,Body weight,float,kg,,72.5
+Systolic Blood Pressure,Systolic arterial pressure,integer,mmHg,,126
+Diastolic Blood Pressure,Diastolic arterial pressure,integer,mmHg,,78
+Heart Rate,Pulse rate,integer,bpm,,76
+Temperature C,Axillary/oral temperature,float,C,,36.7
+HIV Status,HIV serostatus,string,,"Positive; Negative",Negative
+On ART,Currently on ART treatment,string,,"Yes; No",Yes
+Village,Residence location,string,,,Mbarara
+BMI,Body Mass Index,float,kg/m2,,24.8

@@ -171,7 +171,8 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
         study_input_path = f"{input_path}/{study}"
         # about data
         if show_about:
-            st.write(f'### {study}')
+            # Clarify header to "Study <name>" for better context in About section
+            st.write(f"### Study {study}")
             if fs.exists(f"input/{study}/description.txt"):
                 with fs.open(f"{study_input_path}/description.txt", 'r') as of:
                     text = of.read()

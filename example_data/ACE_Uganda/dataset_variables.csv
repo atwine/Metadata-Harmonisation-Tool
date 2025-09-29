@@ -1,0 +1,15 @@
+,variable_name,description
+0,patient_id,Patient Identifier
+1,visit_date,Visit Date (YYYY-MM-DD)
+2,sex,Sex (M/F)
+3,age,Age in years
+4,height_cm,Height in centimeters
+5,weight_kg,Weight in kilograms
+6,sbp,Systolic blood pressure (mmHg)
+7,dbp,Diastolic blood pressure (mmHg)
+8,pulse,Heart rate (beats per minute)
+9,temp_c,Body temperature in Celsius
+10,hiv_status,HIV status (Positive/Negative)
+11,on_art,On ART treatment (Yes/No)
+12,village,Residence village
+13,bmi,Body Mass Index (kg/m2)
