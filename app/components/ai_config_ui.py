@@ -15,6 +15,41 @@ from .monitor import get_ai_monitor
 
 logger = logging.getLogger(__name__)
 
+
+# Cached helper: list models from a running Ollama server
+# This keeps UI snappy and avoids repeated network calls on every rerun.
+@st.cache_data(show_spinner=False)
+def _list_ollama_models_cached(host: str):
+    """Return a sorted list of model names available on the Ollama server.
+
+    Tries to handle both dict and attribute-style responses from the client.
+    Returns an empty list on any error (UI will fall back to text inputs).
+    """
+    try:
+        import ollama
+        client = ollama.Client(host=host)
+        resp = client.list()
+        # Normalize response
+        if hasattr(resp, 'models'):
+            items = getattr(resp, 'models', [])
+        elif isinstance(resp, dict):
+            items = resp.get('models', [])
+        else:
+            items = []
+        names = []
+        for m in items:
+            # Some clients return dicts, others simple objects
+            name = None
+            if isinstance(m, dict):
+                name = m.get('model') or m.get('name')
+            else:
+                name = getattr(m, 'model', None) or getattr(m, 'name', None)
+            if name:
+                names.append(name)
+        return sorted(set(names))
+    except Exception:
+        return []
+
 class AIConfigUI:
     """
     Streamlit UI component for AI provider configuration.
@@ -72,18 +107,50 @@ class AIConfigUI:
             # Consolidated UX: use the unified Connection Test section below
             st.caption("Use the Connection Test below to verify connectivity and models.")
         
-        # Model selection
-        chat_model = st.text_input(
-            "Chat Model",
-            value="llama3.1:8b",
-            help="Model for chat completions"
-        )
-        
-        embedding_model = st.text_input(
-            "Embedding Model", 
-            value="nomic-embed-text",
-            help="Model for text embeddings"
-        )
+        # Model selection: if Ollama server is reachable, show dropdowns of local models
+        available_models = _list_ollama_models_cached(base_url)
+        if available_models:
+            try:
+                chat_model = st.selectbox(
+                    "Chat Model",
+                    options=available_models,
+                    index=min(available_models.index("llama3.1:8b") if "llama3.1:8b" in available_models else 0, len(available_models)-1),
+                    help="Choose from locally available Ollama models"
+                )
+            except Exception:
+                chat_model = st.selectbox(
+                    "Chat Model",
+                    options=available_models,
+                    help="Choose from locally available Ollama models"
+                )
+            # Embedding model: prefer nomic-embed-text if present
+            default_embed = "nomic-embed-text"
+            try:
+                embedding_model = st.selectbox(
+                    "Embedding Model",
+                    options=available_models,
+                    index=min(available_models.index(default_embed) if default_embed in available_models else 0, len(available_models)-1),
+                    help="Choose an embedding-capable local model"
+                )
+            except Exception:
+                embedding_model = st.selectbox(
+                    "Embedding Model",
+                    options=available_models,
+                    help="Choose an embedding-capable local model"
+                )
+            st.caption("Models listed from Ollama at the configured Base URL.")
+        else:
+            # Fallback to text inputs if model listing isn't available
+            chat_model = st.text_input(
+                "Chat Model",
+                value="llama3.1:8b",
+                help="Model for chat completions"
+            )
+            embedding_model = st.text_input(
+                "Embedding Model", 
+                value="nomic-embed-text",
+                help="Model for text embeddings"
+            )
         
         return {
             "base_url": base_url,
