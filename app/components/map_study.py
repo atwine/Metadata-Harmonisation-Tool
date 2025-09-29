@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 from .generate_transformations import generate_transformations
 from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion, validate_expression
 from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations
+from .validation import render_validation_widget
 
 fs = fsspec.filesystem("")
 
@@ -180,6 +181,9 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
         if not fs.exists(f'{input_path}/{study}/dataset_variables_with_PID_date_recommendations.csv'):
             st.write(":red[This study has not had a recommendations file created please initialise the mapping app before proceeding.]")
         else:
+            # Render validation panel for codebook and study inputs
+            render_validation_widget(study)
+
             vars_df = pd.read_csv(
                 f'{input_path}/{study}/dataset_variables_with_PID_date_recommendations.csv'
                 )

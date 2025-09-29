@@ -419,28 +419,28 @@ def render_mapping_interface():
     - [x] Validation feedback for uploads
     - [x] Success confirmations for completed actions
 
-  - [ ] Improve Mapping Page Clarity & Guidance
-    - [ ] Microcopy and contextual help
-      - [ ] Add helper text for when to use Direct vs Categorical
-      - [ ] Add inline microcopy next to instruction fields
-        - [ ] Direct: “Use x with +, -, *, / (e.g., x/12, x*2, x-5)”
-        - [ ] Categorical: “Provide a Python dict like {'0':'No','1':'Yes'} with string keys”
-      - [ ] Add info tooltip for “Match confidence” explaining thresholds (80–100 strong, 60–79 review, <60 verify)
-    - [ ] Pattern examples and templates
-      - [ ] Direct: small “Examples” dropdown (x, x*100, x/12, x-5)
-      - [ ] Categorical: “Insert template” that generates a dict skeleton from top unique values
-    - [ ] Inline validation and recovery
-      - [ ] Categorical: parse with ast.literal_eval; show precise fix suggestions when invalid
-      - [ ] Direct: maintain SafeEvaluator; show rule violated and suggest simple fixes
-    - [ ] Preview that teaches
-      - [ ] Show Before → After table (first 10)
-      - [ ] Add a one-line summary: “Transformed N/M; K blanks”
-    - [ ] Confidence visualization clarity
-      - [ ] Keep meter and %; add color thresholds and tooltip text
-    - [ ] Accessibility & error copy
-      - [ ] Associate errors with inputs; use text + icon (not color-only); aria-live polite
-    - [ ] Lightweight onboarding
-      - [ ] “How do I choose?” link with 2 Direct and 2 Categorical examples; dismissible tip
+  - [x] Improve Mapping Page Clarity & Guidance
+    - [x] Microcopy and contextual help
+      - [x] Add helper text for when to use Direct vs Categorical
+      - [x] Add inline microcopy next to instruction fields
+        - [x] Direct: “Use x with +, -, *, / (e.g., x/12, x*2, x-5)”
+        - [x] Categorical: “Provide a Python dict like {'0':'No','1':'Yes'} with string keys”
+      - [x] Add info tooltip for “Match confidence” explaining thresholds (80–100 strong, 60–79 review, <60 verify)
+    - [x] Pattern examples and templates
+      - [x] Direct: small “Examples” dropdown (x, x*100, x/12, x-5)
+      - [x] Categorical: “Insert template” that generates a dict skeleton from top unique values
+    - [x] Inline validation and recovery
+      - [x] Categorical: parse with ast.literal_eval; show precise fix suggestions when invalid
+      - [x] Direct: maintain SafeEvaluator; show rule violated and suggest simple fixes
+    - [x] Preview that teaches
+      - [x] Show Before → After table (first 10)
+      - [x] Add a one-line summary: “Transformed N/M; K blanks”
+    - [x] Confidence visualization clarity
+      - [x] Keep meter and %; add color thresholds and tooltip text
+    - [x] Accessibility & error copy
+      - [x] Associate errors with inputs; use text + icon (not color-only); aria-live polite
+    - [x] Lightweight onboarding
+      - [x] “How do I choose?” link with 2 Direct and 2 Categorical examples; dismissible tip
 
   References (for UX best practices):
   - NN/g: 10 Design Guidelines for Reporting Errors in Forms — https://www.nngroup.com/articles/errors-forms-design-guidelines/
@@ -452,25 +452,25 @@ def render_mapping_interface():
 ### Phase 4: Data Quality & Testing (Weeks 7-8)
 **Priority: MEDIUM** *(Essential for reliable utility)*
 
-- [ ] **Basic data validation**
-  - [ ] Input validation
-    - [ ] Codebook format validation
-    - [ ] Study data format validation
-    - [ ] File size and format checks
-  - [ ] Transformation validation
-    - [ ] Test transformations on sample data before applying
-    - [ ] Validate transformation results
-    - [ ] Report transformation success rates
+- [x] **Basic data validation**
+  - [x] Input validation
+    - [x] Codebook format validation
+    - [x] Study data format validation
+    - [x] File size and format checks
+  - [x] Transformation validation
+    - [x] Test transformations on sample data before applying
+    - [x] Validate transformation results
+    - [x] Report transformation success rates
 
-- [ ] **Essential testing**
-  - [ ] Core functionality tests
-    - [ ] Test transformation functions with various inputs
-    - [ ] Test AI provider integrations
-    - [ ] Test file upload/download workflows
-  - [ ] Error handling tests
-    - [ ] Test with malformed data
-    - [ ] Test AI provider failures
-    - [ ] Test edge cases in transformations
+- [x] **Essential testing**
+  - [x] Core functionality tests
+    - [x] Test transformation functions with various inputs
+    - [x] Test AI provider integrations
+    - [x] Test file upload/download workflows
+  - [x] Error handling tests
+    - [x] Test with malformed data
+    - [x] Test AI provider failures
+    - [x] Test edge cases in transformations
 
 ---
 
