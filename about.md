@@ -8,19 +8,6 @@ The tool is built using [Streamlit](https://streamlit.io/), [Ollama](https://oll
 
 This tool uses a local **Ollama** instance to power its core AI features. For the tool to function correctly, **Ollama must be installed and running on your computer** with the required models downloaded (`nomic-embed-text` and `llama3.1:8b`).
 
-**How it Works:**
-
-1.  **Embedding Generation:** During the `Initialise` step, Ollama creates vector embeddings (numerical representations) of your variable descriptions. The tool compares these embeddings to recommend the most likely mappings between your study and the target codebook.
-2.  **Description & Transformation Suggestions:** The AI also assists by generating variable descriptions where they are missing and suggesting potential data transformations, making the mapping process faster and more accurate.
-
-**Why Local AI is Important:**
-
-*   **Privacy:** All data processing happens on your machine. No sensitive or confidential information is ever sent to an external server.
-*   **No API Keys or Costs:** You do not need an internet connection or expensive API keys to use the AI features.
-*   **Control:** You have full control over the models you use.
-
----
-
 ### How to Navigate This App
 
 Welcome to the Metadata Harmonisation Tool! Here is a quick guide to get you started.
@@ -36,3 +23,29 @@ Welcome to the Metadata Harmonisation Tool! Here is a quick guide to get you sta
 4.  **`Map Studies`**: This is where the main mapping work happens. Select a study and begin mapping its variables to your codebook, assisted by the AI recommendations.
 
 5.  **`Download Results`**: After you've completed the mapping for a study, you can download the results as a CSV file from this page.
+
+---
+
+### Required CSV Formats
+
+- **Target Codebook (CSV)**
+  - **Required columns**: `variable_name`, `description`
+  - **Optional columns** (enables auto-transformations): `dType`, `Unit`, `Categories`, `Unit Example`
+  - **dType supported**: `float`, `integer`, `string`, `boolean` (other values are accepted but default handling applies)
+
+- **Study Variables (CSV)**
+  - **Required columns**: `variable_name`, `description`
+  - The `description` can be empty if unknown (the AI can help generate it during initialise)
+
+- **Example Data (CSV, optional)**
+  - Column names must match the `variable_name` values in the Study Variables CSV
+  - Used to preview transformations during mapping
+
+- **Context Document (PDF, optional)**
+  - A relevant document (e.g., protocol or article) to improve AI-generated descriptions
+
+**Example Target Codebook header:**
+
+```
+variable_name,description,dType,Unit,Categories,Unit Example
+```

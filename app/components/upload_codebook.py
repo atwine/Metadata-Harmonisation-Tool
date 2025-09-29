@@ -51,10 +51,28 @@ def upload_codebook_page():
     with col1:
         st.write("To Upload a new codebook complete the form below.")
         with st.form("my_form"):
-            new_target_df = st.file_uploader('Target Codebook', type='csv', accept_multiple_files=False, help = "Only CSV format accepted. The File should contain two columns titled 'variable_name' and 'description'. A description is required for each variable_name.")
+            # UI: clarify required/optional CSV columns for the codebook; keep behavior unchanged
+            new_target_df = st.file_uploader(
+                'Target Codebook',
+                type='csv',
+                accept_multiple_files=False,
+                help=(
+                    "Only CSV format accepted. Required columns: 'variable_name' and 'description'. "
+                    "Optional (enables auto-transformations): 'dType', 'Unit', 'Categories', 'Unit Example'."
+                )
+            )
             submit = st.form_submit_button(":green[Update Codebook]", help = 'Note when uploading a new codebook the recommendation engine will rerun for all studies. This may take a few minutes.')
             if submit:
                 upload_codebook(new_target_df)
+        # UI help: compact guidance on expected CSV formats
+        with st.expander("Codebook CSV format (required columns)"):
+            st.markdown(
+                "- **Required**: `variable_name`, `description`\n"
+                "- **Optional (enables auto-transformations)**: `dType`, `Unit`, `Categories`, `Unit Example`\n"
+                "- **dType supported**: `float`, `integer`, `string`, `boolean` (other values are accepted but default handling applies)\n"
+                "- **Study variables CSV**: must also have `variable_name`, `description` (description may be empty)\n"
+                "- **Example data CSV (optional)**: column names must match `variable_name` in the variables CSV"
+            )
                 
     with col2:
         if fs.exists(f'{input_path}/target_variables.csv'):
