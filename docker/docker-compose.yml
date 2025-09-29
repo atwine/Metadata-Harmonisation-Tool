@@ -18,6 +18,7 @@ services:
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
       - STREAMLIT_GLOBAL_DEVELOPMENT_MODE=false
       - STREAMLIT_GLOBAL_SUPPRESS_WARNING=true
+      - STREAMLIT_LOG_LEVEL=warning
       
       # AI Provider configurations (override with .env file)
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -29,6 +30,8 @@ services:
       # Application settings
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+    env_file:
+      - ../.env
     volumes:
       # Mount input and output directories for data persistence
       - ../input:/app/input
@@ -59,6 +62,12 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - metadata-network
