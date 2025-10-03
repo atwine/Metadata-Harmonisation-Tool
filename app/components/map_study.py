@@ -212,6 +212,17 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 empty_df['marked'] = 'To do'
                 empty_df.to_csv(results_file, index=False)
 
+            # --- Progress context: show mapped/total summary for the study ---
+            try:
+                _full_results = pd.read_csv(results_file)
+                _total = len(vars_unsorted)
+                _mapped = (_full_results['marked'] == 'Successfully mapped').sum() if 'marked' in _full_results.columns else 0
+                st.caption(f"{_mapped}/{_total} variables mapped")
+                if _total > 0:
+                    st.progress(min(max(_mapped / _total, 0.0), 1.0))
+            except Exception:
+                pass
+
             # query results file
             variables = duckdb.sql(f"""SELECT study_var
                                 FROM read_csv_auto('{results_file}', delim = ',', header = True)
@@ -232,9 +243,29 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 # previous info
                 if not variables_status == 'To do':
                     st.write('The following information has previously been recorded:')
-                    st.write(duckdb.sql(f"""SELECT *
+                    _prev_df = duckdb.sql(f"""SELECT *
                                         FROM read_csv_auto('{results_file}', delim = ',', header = True)
-                                        WHERE study_var = '{variable_to_map}'""").fetchdf())
+                                        WHERE study_var = '{variable_to_map}'""").fetchdf()
+                    # Compact, read-only details for review
+                    _display_cols = ['study_var','codebook_var','confidence','marked','patient_id_var','date_var','transformation_type','transformation_instructions','notes']
+                    _display_cols = [c for c in _display_cols if c in _prev_df.columns]
+                    if _display_cols:
+                        st.dataframe(_prev_df[_display_cols], use_container_width=True)
+                    else:
+                        st.dataframe(_prev_df, use_container_width=True)
+
+                    # Optional: allow reopening for edit (moves item back to To do)
+                    if st.button('Reopen for edit'):
+                        try:
+                            _df_old = pd.read_csv(results_file)
+                            _df_old.loc[_df_old['study_var'] == variable_to_map, 'marked'] = 'To do'
+                            _df_old.to_csv(results_file, index=False)
+                            st.success('Moved to To do. Switch to "To do" view to edit.')
+                        except Exception as e:
+                            st.error(f'Failed to reopen for edit: {e}')
+
+                    # Read-only mode: do not render mapping UI below
+                    return
 
                 example_avail = False
                 col1, col2 = st.columns(2)
