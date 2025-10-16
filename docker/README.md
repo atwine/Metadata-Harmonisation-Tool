@@ -30,11 +30,96 @@ docker\build.bat
 docker build -f docker/Dockerfile -t metadata-harmonisation-tool:latest .
 ```
 
+### Windows quick start (PowerShell/CMD)
+
+- PowerShell (run from repository root):
+```powershell
+# Build
+docker build -f docker/Dockerfile -t metadata-harmonisation-tool:latest .
+
+# Run against host Ollama
+$env:OLLAMA_BASE_URL="http://host.docker.internal:11434"
+docker run --rm -p 8501:8501 `
+  -e OLLAMA_BASE_URL=$env:OLLAMA_BASE_URL `
+  -v "$PWD/input":/app/input `
+  -v "$PWD/output":/app/output `
+  -v "$PWD/logs":/app/logs `
+  metadata-harmonisation-tool:latest
+```
+
+- Command Prompt (cmd.exe):
+```cmd
+REM Build
+docker build -f docker\Dockerfile -t metadata-harmonisation-tool:latest .
+
+REM Run against host Ollama
+set OLLAMA_BASE_URL=http://host.docker.internal:11434
+docker run --rm -p 8501:8501 ^
+  -e OLLAMA_BASE_URL=%OLLAMA_BASE_URL% ^
+  -v %cd%\input:/app/input ^
+  -v %cd%\output:/app/output ^
+  -v %cd%\logs:/app/logs ^
+  metadata-harmonisation-tool:latest
+```
+
+> Tip: In Git Bash, use forward slashes in paths (e.g., `docker/Dockerfile`) and prefer running the build from repo root.
+
+### Run the image directly (host Ollama)
+
+If you are using Ollama running on the host (outside Docker), you can run the image directly and mount local folders for data persistence:
+
+```bash
+# If using host Ollama
+export OLLAMA_BASE_URL=http://host.docker.internal:11434
+docker run --rm -p 8501:8501 \
+  -e OLLAMA_BASE_URL=$OLLAMA_BASE_URL \
+  -v "$PWD/input":/app/input \
+  -v "$PWD/output":/app/output \
+  -v "$PWD/logs":/app/logs \
+  metadata-harmonisation-tool:latest
+```
+
 ### 2. Run with Docker Compose
 
 **Basic setup:**
 ```bash
 docker-compose -f docker/docker-compose.yml up
+```
+
+### 2.1 Windows-specific notes
+
+- **Docker Hub authentication:** run `docker login` in the same shell you plan to build/push from (PowerShell, CMD, or WSL). If you switch shells, re-run `docker login` in that shell.
+- **Compose with host Ollama:** set `OLLAMA_BASE_URL` to `http://host.docker.internal:11434` in your `.env` or pass it in the environment before `docker-compose up`.
+- **Git Bash path quirks:** use forward slashes for file paths (e.g., `-f docker/Dockerfile`).
+
+### Verifying Docker and Ollama on Windows
+
+- **Check Docker is running:**
+```powershell
+# PowerShell
+docker --version
+docker info | Select-String -Pattern 'Server Version'
+```
+
+- **Verify Ollama (host):**
+```powershell
+# PowerShell
+Invoke-WebRequest http://localhost:11434/api/tags | Select-Object -ExpandProperty StatusCode
+# or
+curl.exe http://localhost:11434/api/tags
+```
+
+- **Network from container (using host Ollama):**
+```powershell
+# Expect HTTP 200 JSON response
+$env:OLLAMA_BASE_URL="http://host.docker.internal:11434"
+docker run --rm -e OLLAMA_BASE_URL=$env:OLLAMA_BASE_URL curlimages/curl:8.10.1 \
+  -s http://host.docker.internal:11434/api/tags
+```
+
+- **WSL backend (optional):**
+```powershell
+wsl.exe -l -v  # ensure your default distro runs version 2
 ```
 
 **Development mode:**
@@ -179,7 +264,7 @@ docker logs metadata-harmonisation-tool
 docker exec -it metadata-harmonisation-tool /bin/bash
 
 # Check container health
-docker inspect metadata-harmonisation-tool | grep Health -A 10
+docker inspect -f '{{json .State.Health}}' metadata-harmonisation-tool | grep Health -A 10
 ```
 
 ### Performance Tuning
