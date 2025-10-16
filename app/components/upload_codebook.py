@@ -2,12 +2,22 @@ import streamlit as st
 import pandas as pd
 import fsspec
 import clevercsv
+import os
 from io import StringIO
 from dotenv import dotenv_values
 from .util import modify_env
 
-results_path = "results"
-input_path = "input"
+"""Paths resolved to work in both app runtime (cwd=app/) and tests.
+Prefer local ./input if present, otherwise fall back to repo root /input.
+"""
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_CWD_BASE = os.path.abspath(os.getcwd())
+_LOCAL_INPUT = os.path.join(_CWD_BASE, "input")
+_LOCAL_RESULTS = os.path.join(_CWD_BASE, "results")
+_REPO_INPUT = os.path.join(BASE_DIR, "input")
+_REPO_RESULTS = os.path.join(BASE_DIR, "results")
+input_path = _LOCAL_INPUT if os.path.exists(_LOCAL_INPUT) else _REPO_INPUT
+results_path = _LOCAL_RESULTS if os.path.exists(_LOCAL_RESULTS) else _REPO_RESULTS
 preprocess_path = "preprocess"
 
 fs = fsspec.filesystem("")
@@ -73,6 +83,13 @@ def upload_codebook_page():
                 "- **Study variables CSV**: must also have `variable_name`, `description` (description may be empty)\n"
                 "- **Example data CSV (optional)**: column names must match `variable_name` in the variables CSV"
             )
+            # Display a sample image to illustrate expected CSV format (requested)
+            try:
+                _sample_img = os.path.join(BASE_DIR, "assets", "images", "sample_data.png")
+                if os.path.exists(_sample_img):
+                    st.image(_sample_img, caption="Sample variables CSV format", use_container_width=True)
+            except Exception:
+                pass
                 
     with col2:
         if fs.exists(f'{input_path}/target_variables.csv'):

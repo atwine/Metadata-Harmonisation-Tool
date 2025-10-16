@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import fsspec
 from scipy import spatial
@@ -7,8 +8,16 @@ from .ai_provider import AIProviderError
 import numpy as np
 import ast
 
-results_path = "results"
-input_path = "input"
+# Resolve paths to work for both app runtime (cwd=app/) and tests (cwd=tests/integration)
+# Strategy: prefer a local ./input if it exists; otherwise use repo-root /input
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_CWD_BASE = os.path.abspath(os.getcwd())
+_LOCAL_INPUT = os.path.join(_CWD_BASE, "input")
+_LOCAL_RESULTS = os.path.join(_CWD_BASE, "results")
+_REPO_INPUT = os.path.join(BASE_DIR, "input")
+_REPO_RESULTS = os.path.join(BASE_DIR, "results")
+input_path = _LOCAL_INPUT if os.path.exists(_LOCAL_INPUT) else _REPO_INPUT
+results_path = _LOCAL_RESULTS if os.path.exists(_LOCAL_RESULTS) else _REPO_RESULTS
 
 fs = fsspec.filesystem("")
 

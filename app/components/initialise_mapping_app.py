@@ -1,5 +1,6 @@
 import streamlit as st
 import fsspec
+import os
 from dotenv import dotenv_values
 from .get_recommendations import get_embeddings, get_recommendations, get_PID_date_recommendations
 from .generate_descriptions import generate_descriptions, convert_pdf_to_txt
@@ -7,8 +8,15 @@ from .util import modify_env, delete_files_and_folders, get_ollama_client, get_a
 
 fs = fsspec.filesystem("")
 
-results_path = "results"
-input_path = "input"
+# Resolve paths to work from both app/ (streamlit run) and tests/
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_CWD_BASE = os.path.abspath(os.getcwd())
+_LOCAL_INPUT = os.path.join(_CWD_BASE, "input")
+_LOCAL_RESULTS = os.path.join(_CWD_BASE, "results")
+_REPO_INPUT = os.path.join(BASE_DIR, "input")
+_REPO_RESULTS = os.path.join(BASE_DIR, "results")
+input_path = _LOCAL_INPUT if os.path.exists(_LOCAL_INPUT) else _REPO_INPUT
+results_path = _LOCAL_RESULTS if os.path.exists(_LOCAL_RESULTS) else _REPO_RESULTS
 
 def initialise_mapping_recommendations():
     """
@@ -41,6 +49,22 @@ def initialise_mapping_recommendations():
     
     if config.get('init_prompt') != init_prompt:
         modify_env('init_prompt', init_prompt)
+
+    st.caption("Changing this prompt affects how AI fills in missing descriptions. Re-run the Recommendation Engine to apply. Existing non-empty descriptions are not overwritten.")
+    cols = st.columns([1,3])
+    with cols[0]:
+        if st.button('Reset to default', key='reset_init_prompt'):
+            modify_env('init_prompt', default_init_prompt)
+            st.success('Prompt reset to default.')
+            st.rerun()
+    with cols[1]:
+        with st.expander('Prompt tips'):
+            st.markdown(
+                "- **Keep it concise and directive** to ensure consistent outputs.\n"
+                "- **Specify style** (short label vs full sentence) and use public health terminology.\n"
+                "- **Avoid speculation**; ask to infer only from provided context.\n"
+                "- **Model differences** may change tone; stable prompts are brief and explicit."
+            )
 
     if 'auto_transform_available' not in config:
         modify_env('auto_transform_available', 'no')
