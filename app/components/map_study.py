@@ -26,6 +26,23 @@ if 'transformation_instructions' not in st.session_state:
     st.session_state.transformation_instructions = {}
 
 
+# SECURITY: safe parsing helper for list-like values stored in CSVs (used for sorting).
+# Kept at module scope so it can be covered by unit tests.
+def _safe_first_distance(v):
+    try:
+        if pd.isna(v):
+            return float('inf')
+        if isinstance(v, (list, tuple)):
+            return v[0] if len(v) > 0 else float('inf')
+        if isinstance(v, str):
+            parsed = ast.literal_eval(v)
+            if isinstance(parsed, (list, tuple)):
+                return parsed[0] if len(parsed) > 0 else float('inf')
+        return float('inf')
+    except Exception:
+        return float('inf')
+
+
 def write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, results_file, transformation_instructions=None, transformation_type=None, source_dtype=None, target_dtype=None, patient_id=None, date=None):
     """
     Writes the mapping results to a CSV file.
@@ -190,7 +207,7 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 )
 
             # the below sorts the variables by difficulty to match to a codebook variable
-            vars_df['best_dist'] = [eval(x)[0] for x in vars_df['target_distances']]
+            vars_df['best_dist'] = [_safe_first_distance(x) for x in vars_df['target_distances']]
             # get variables
             vars_unsorted = vars_df['variable_name']
             # get variables sorted
@@ -291,6 +308,38 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 st.write('Please complete the form below:')
                 # append confidence to var name
                 recommended_keys = pre_process_recomendations(to_map_df, 'target', study)
+                # SAFETY: hide codebook variables already mapped for other study variables to reduce accidental duplicates
+                try:
+                    _res_df = pd.read_csv(results_file)
+                    _used = set(
+                        # Treat any non-'To do' record as "already used" (e.g., Successfully mapped, Marked to reconsider, Marked unmappable)
+                        _res_df.loc[_res_df['marked'] != 'To do', 'codebook_var']
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                        .tolist()
+                    )
+                    _used = {u for u in _used if u and u.lower() != 'none'}
+
+                    _prev_row = _res_df.loc[_res_df['study_var'] == variable_to_map]
+                    _prev_codebook = None
+                    if not _prev_row.empty and 'codebook_var' in _prev_row.columns:
+                        try:
+                            _prev_codebook = str(_prev_row.iloc[-1]['codebook_var']).strip()
+                        except Exception:
+                            _prev_codebook = None
+
+                    if _used and isinstance(recommended_keys, list):
+                        _filtered = []
+                        for k in recommended_keys:
+                            v, _ = split_var_confidence(k)
+                            v = str(v).strip()
+                            if (_prev_codebook and v == _prev_codebook) or (v not in _used):
+                                _filtered.append(k)
+                        if _filtered:
+                            recommended_keys = _filtered
+                except Exception:
+                    pass
                 # select variable
                 mapped_variable = st.selectbox('Does this map to any of these variables?', recommended_keys) # type: ignore
                 # Always compute and show match confidence immediately after selection (independent of transformations)
