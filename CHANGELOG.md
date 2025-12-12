@@ -9,6 +9,17 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
   - Replaced with safe parsing via `ast.literal_eval()` with graceful fallback.
   - File: `app/components/map_study.py`
 
+- Map Studies page: study selector visibility and study switching regression.
+  - Moved study selector above the AI configuration panel to avoid it being pushed out of view.
+  - Simplified `st.selectbox` session state handling to prevent selection being overridden on reruns.
+  - File: `app/pages/4_Map_Studies.py`
+
+- Download Results page: show all initialized studies (from `input/`) and prevent render failures.
+  - List studies from `input/` even when no `results/<study>.csv` exists yet.
+  - Added option to create an empty results CSV when missing.
+  - Fixed indentation errors that prevented the Download Results page from rendering.
+  - File: `app/components/download.py`
+
 ### Added
 - Session-scoped embedding cache to reduce repeat embedding calls.
   - Cache key: provider + embedding model + sha256(text) (stored in `st.session_state`).
