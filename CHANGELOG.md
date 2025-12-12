@@ -19,6 +19,11 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
   - Added inline “How Relational Mode works (example)” help expander when Relational Mode is enabled.
   - File: `app/components/map_study.py`
 
+### Removed
+- Removed “Auto Generate Transformation Instructions” from Map Studies (manual transformations only).
+  - File: `app/components/map_study.py`
+
+
 ### Tests
 - Added regression tests for safe parsing/sorting of `target_distances`.
   - File: `tests/test_map_study_safe_sort.py`

@@ -66,9 +66,6 @@ def initialise_mapping_recommendations():
                 "- **Model differences** may change tone; stable prompts are brief and explicit."
             )
 
-    if 'auto_transform_available' not in config:
-        modify_env('auto_transform_available', 'no')
-
     st.divider()
     
     ready_to_run = fs.exists(f'{input_path}/target_variables.csv')

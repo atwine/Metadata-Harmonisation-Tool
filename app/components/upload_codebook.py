@@ -4,8 +4,6 @@ import fsspec
 import clevercsv
 import os
 from io import StringIO
-from dotenv import dotenv_values
-from .util import modify_env
 
 """Paths resolved to work in both app runtime (cwd=app/) and tests.
 Prefer local ./input if present, otherwise fall back to repo root /input.
@@ -46,10 +44,8 @@ def upload_codebook(file_in):
     target_df = streamlit_csv_reader(file_in)
     try:
         target_df = target_df[['variable_name', 'description', 'dType', 'Unit', 'Categories', 'Unit Example']]
-        modify_env('auto_transform_available', 'yes')
     except:
         target_df = target_df[['variable_name', 'description']]
-        modify_env('auto_transform_available', 'no')
     fs.mkdirs(f"{input_path}/", exist_ok = True)
     target_df.to_csv(f"{input_path}/target_variables.csv", index = False)
 
@@ -61,29 +57,26 @@ def upload_codebook_page():
     with col1:
         st.write("To Upload a new codebook complete the form below.")
         with st.form("my_form"):
-            # UI: clarify required/optional CSV columns for the codebook; keep behavior unchanged
             new_target_df = st.file_uploader(
                 'Target Codebook',
                 type='csv',
                 accept_multiple_files=False,
                 help=(
                     "Only CSV format accepted. Required columns: 'variable_name' and 'description'. "
-                    "Optional (enables auto-transformations): 'dType', 'Unit', 'Categories', 'Unit Example'."
+                    "Optional: 'dType', 'Unit', 'Categories', 'Unit Example'."
                 )
             )
             submit = st.form_submit_button(":green[Update Codebook]", help = 'Note when uploading a new codebook the recommendation engine will rerun for all studies. This may take a few minutes.')
             if submit:
                 upload_codebook(new_target_df)
-        # UI help: compact guidance on expected CSV formats
         with st.expander("Codebook CSV format (required columns)"):
             st.markdown(
                 "- **Required**: `variable_name`, `description`\n"
-                "- **Optional (enables auto-transformations)**: `dType`, `Unit`, `Categories`, `Unit Example`\n"
+                "- **Optional**: `dType`, `Unit`, `Categories`, `Unit Example`\n"
                 "- **dType supported**: `float`, `integer`, `string`, `boolean` (other values are accepted but default handling applies)\n"
                 "- **Study variables CSV**: must also have `variable_name`, `description` (description may be empty)\n"
                 "- **Example data CSV (optional)**: column names must match `variable_name` in the variables CSV"
             )
-            # Display a sample image to illustrate expected CSV format (requested)
             try:
                 _sample_img = os.path.join(BASE_DIR, "assets", "images", "sample_data.png")
                 if os.path.exists(_sample_img):
@@ -94,12 +87,11 @@ def upload_codebook_page():
     with col2:
         if fs.exists(f'{input_path}/target_variables.csv'):
             st.write("Target Codebook")
-            config = dotenv_values(".env")
-            if config['auto_transform_available'] == 'yes':
-                target_df = pd.read_csv(f'{input_path}/target_variables.csv')[['variable_name', 'description', 'dType', 'Unit', 'Categories', 'Unit Example']]
-            else:
-                target_df = pd.read_csv(f'{input_path}/target_variables.csv')[['variable_name', 'description']]
-                st.write("Auto transformations will not be available for this study as the target codebook does not contain dType, Unit, Categories, or Unit Example columns.")
+            target_df = pd.read_csv(f'{input_path}/target_variables.csv')
+            _display_cols = ['variable_name', 'description', 'dType', 'Unit', 'Categories', 'Unit Example']
+            _display_cols = [c for c in _display_cols if c in target_df.columns]
+            if _display_cols:
+                target_df = target_df[_display_cols]
             st.dataframe(target_df, use_container_width=True)
         else:
             st.write("No codebook is currently loaded")

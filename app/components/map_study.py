@@ -5,8 +5,6 @@ import duckdb
 import time
 import numpy as np
 import ast
-from dotenv import dotenv_values
-from .generate_transformations import generate_transformations
 from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion, validate_expression
 from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations
 from .validation import render_validation_widget
@@ -169,15 +167,7 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
         relational_mode (bool): Whether to enable relational mode.
         enable_transformations (bool): Whether to enable transformations.
     """
-    config = dotenv_values(".env")
-
-    if 'auto_transform_available' in list(config):
-        auto_transform_available = config['auto_transform_available']
-    else:
-        auto_transform_available = 'no'
-
-    if auto_transform_available == 'yes':
-        codebook = pd.read_csv(f'{input_path}/target_variables.csv')
+    # Auto Generate Transformation Instructions removed (manual transformations only).
     
     if study == None:
         st.write(':red[No studies available, please initialise the mapping app]')
@@ -400,118 +390,11 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                     # but test_transformation() is called with them, so define upfront to avoid UnboundLocalError.
                     source_dtype = None
                     target_dtype = None
+                    # Manual-only defaults (no auto-generation)
+                    transformation_type_idx = 0
                     target_dtype_idx = 0
-                    if auto_transform_available == 'yes':
-                        # Robustly match the selected codebook entry by description or variable name
-                        # Normalize both sides (trim + case-insensitive)
-                        norm_target = str(codebook_var).strip().casefold()
-                        candidates = [c for c in ['description', 'Description', 'variable_name', 'Variable', 'Variable Name'] if c in codebook.columns]
-                        if candidates:
-                            parts = []
-                            for col in candidates:
-                                try:
-                                    part = codebook[codebook[col].astype(str).str.strip().str.casefold() == norm_target]
-                                    if len(part):
-                                        parts.append(part)
-                                except Exception:
-                                    continue
-                            if parts:
-                                codebook_var_df = pd.concat(parts).drop_duplicates()
-                            else:
-                                codebook_var_df = codebook.iloc[0:0]
-                        else:
-                            # Fallback to original behavior if expected columns are missing
-                            codebook_var_df = codebook[codebook['description'] == codebook_var]
-                        # Handle case when the filter returns no rows or multiple rows
-                        if len(codebook_var_df) != 1:
-                            # Safe default values when the expected row isn't found
-                            value = float('nan')  # Default to NaN
-                            dtype = 'string'       # Default to string type
-                        else:
-                            # Extract values only when we have exactly one row
-                            value = codebook_var_df.Categories.item()
-                            dtype = codebook_var_df.dType.item()
-                            
-                        if isinstance(value, float) and np.isnan(value): # direct
-                            transformation_type_idx = 0
-                            if variable_to_map not in st.session_state.transformation_instructions:
-                                st.session_state.transformation_instructions[variable_to_map] = 'x'
-                            try:
-                                target_dtype_idx = dtype_options.index(dtype)
-                            except:
-                                target_dtype_idx = 0
-                        else: # categorical
-                            transformation_type_idx = 1
-                            if variable_to_map not in st.session_state.transformation_instructions:
-                                st.session_state.transformation_instructions[variable_to_map] = '{}'
-                        generate_instructions = st.button('Auto Generate Transformation Instructions', key='generate')
-                        if generate_instructions:
-                            # Validate codebook row uniqueness before calling generator
-                            # If the description does not uniquely identify a single codebook row, do not call the generator.
-                            if len(codebook_var_df) != 1:
-                                if len(codebook_var_df) == 0:
-                                    st.error("Auto-generation blocked: No unique codebook row found for the selected description. (ERR-CODEBOOK-NO-MATCH)")
-                                else:
-                                    st.error("Auto-generation blocked: Multiple codebook rows matched the selected description. (ERR-CODEBOOK-MULTI-MATCH)")
-                                st.info("Tips: Ensure descriptions in target_variables.csv are unique for each target variable, or select a different mapping. You may also refine the codebook to remove duplicates.")
-                            else:
-                                prev_instr = st.session_state.transformation_instructions.get(variable_to_map, '')
-                                try:
-                                    ai_result = generate_transformations(
-                                        split_var_confidence(mapped_variable)[0],
-                                        variable_to_map,
-                                        example_data,
-                                        prev_instr,
-                                        codebook_var_df
-                                    )
-                                except Exception as e:
-                                    ai_result = None
-                                    st.error(f"Auto-generation failed: {e} (ERR-AUTO-GEN-EXC)")
-                                # Only update session state with valid strings; otherwise preserve previous or fallback
-                                if isinstance(ai_result, str) and ai_result.strip():
-                                    if transformation_type_idx == 0:
-                                        # Direct expression must be valid
-                                        try:
-                                            is_valid, msg = validate_expression(ai_result)
-                                        except Exception as e:
-                                            is_valid, msg = (False, f"Validation error: {e}")
-                                        if is_valid:
-                                            st.session_state.transformation_instructions[variable_to_map] = ai_result
-                                            st.success("Auto-generated direct transformation applied.")
-                                        else:
-                                            st.error(f"Generated expression invalid: {msg} (ERR-AUTO-GEN-DIRECT-INVALID)")
-                                            if prev_instr:
-                                                st.info("Preserved previous instructions.")
-                                            else:
-                                                st.info("Using safe default 'x' as fallback.")
-                                                st.session_state.transformation_instructions[variable_to_map] = 'x'
-                                    else:
-                                        # Categorical: basic sanity check — must look like a dict string
-                                        txt = ai_result.strip()
-                                        if txt.startswith('{') and txt.endswith('}'):
-                                            st.session_state.transformation_instructions[variable_to_map] = ai_result
-                                            st.success("Auto-generated categorical mapping applied.")
-                                        else:
-                                            st.error("Generated categorical mapping is not a dictionary-like string. (ERR-AUTO-GEN-CAT-INVALID)")
-                                            if prev_instr:
-                                                st.info("Preserved previous instructions.")
-                                            else:
-                                                st.info("Using safe default '{}' as fallback.")
-                                                st.session_state.transformation_instructions[variable_to_map] = '{}'
-                                else:
-                                    st.error("No valid transformation was returned by the AI provider. (ERR-AUTO-GEN-NONE)")
-                                    if prev_instr:
-                                        st.info("Preserved previous instructions.")
-                                    else:
-                                        default_fallback = 'x' if transformation_type_idx == 0 else '{}'
-                                        st.info(f"Using safe default '{default_fallback}' as fallback.")
-                                        st.session_state.transformation_instructions[variable_to_map] = default_fallback
-                    else:
-                        generate_instructions = st.button('Auto Generate Transformation Instructions', key='generate', disabled=True, help='Auto transformations are not available for this study as the target codebook does not contain dType, Unit, Categories, or Unit Example columns.')
-                        transformation_type_idx = 0
-                        if variable_to_map not in st.session_state.transformation_instructions:
-                            st.session_state.transformation_instructions[variable_to_map] = 'x'
-                        target_dtype_idx = 0
+                    if variable_to_map not in st.session_state.transformation_instructions:
+                        st.session_state.transformation_instructions[variable_to_map] = 'x'
 
                     col3, col4 = st.columns(2)
                     with col3:
@@ -525,6 +408,12 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                         if not st.session_state['hide_transform_tip']:
                             with st.expander('How do I choose?'):
                                 st.markdown(
+                                    "**When should I use Transform Mode?**\n"
+                                    "Use it when the study values need conversion to match the target codebook (units, dtype, or categories).\n\n"
+                                    "**Simple examples**\n"
+                                    "- Direct: study has `age_months` and target is `Age-Years` → use `x/12`\n"
+                                    "- Categorical: study has `sex` values `M/F` and target expects `Male/Female` → use `{'M':'Male','F':'Female'}`\n\n"
+                                    "**How do I choose a type?**\n"
                                     "- Direct (numbers): Keep arithmetic simple with x. Examples: `x`, `x*100`, `x/12`, `x-5`.\n"
                                     "- Categorical (labels): Map raw values to labels. Examples: `{'0':'No','1':'Yes'}`, `{'M':'Male','F':'Female'}`."
                                 )
@@ -571,8 +460,10 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                                     st.session_state['transformation_input'] = template
                                 except Exception:
                                     st.warning('Could not build a template from sample values.')
-                        # Ensure the widget key is initialized before creating the widget
-                        if 'transformation_input' not in st.session_state:
+                        # Keep the text_input widget in sync with the currently selected variable.
+                        # Note: when a widget has a key, Streamlit uses st.session_state[key] as the source of truth.
+                        if st.session_state.get('transformation_input_var') != variable_to_map:
+                            st.session_state['transformation_input_var'] = variable_to_map
                             st.session_state['transformation_input'] = st.session_state.transformation_instructions.get(variable_to_map, '')
                         transformation_instruction_final = st.text_input(
                             'Transformation instructions for this variable:',
