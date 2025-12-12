@@ -379,7 +379,13 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                                      range(len(mapping_options)),
                                      index=1,
                                      format_func=lambda x: mapping_options[x])  # returns index of options
-                notes = st.text_input('Notes about this variable:', '')
+                # Notes UI: bind to a stable widget key so we can reliably clear it after Submit.
+                if st.session_state.get('notes_input_var') != variable_to_map:
+                    st.session_state['notes_input_var'] = variable_to_map
+                    st.session_state.setdefault('notes_draft', {})
+                    st.session_state['notes_input'] = st.session_state['notes_draft'].get(variable_to_map, '')
+                notes = st.text_input('Notes about this variable:', key='notes_input')
+                st.session_state.setdefault('notes_draft', {})[variable_to_map] = notes
                 if enable_transformations and example_avail:
                     # Initialize the transformation instructions dictionary if it doesn't exist
                     if 'transformation_instructions' not in st.session_state:
@@ -530,6 +536,12 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 if submitted:
                     # write mappings to results
                     _ = write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, results_file, transformation_instruction, transformation_type, source_dtype, target_dtype, patient_id, date)
+                    # Clear notes after a successful submit so the next variable starts with an empty Notes field.
+                    try:
+                        st.session_state.setdefault('notes_draft', {}).pop(variable_to_map, None)
+                        st.session_state['notes_input'] = ''
+                    except Exception:
+                        pass
                     transformation_instruction = None
                     # sleep a few seconds to show results being written
                     time.sleep(0.2)
