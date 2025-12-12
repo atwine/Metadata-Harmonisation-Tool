@@ -366,6 +366,17 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 except Exception:
                     pass
                 if relational_mode:
+                    with st.expander('How Relational Mode works (example)', expanded=False):
+                        st.markdown(
+                            "Relational Mode helps you capture *which columns identify the record* for each mapped variable. "
+                            "This is useful when you plan to load harmonised data into a relational database (joinable by an ID and often a date).\n\n"
+                            "**Example**\n"
+                            "- Study has columns: `participant_id`, `visit_date`, `smoking_status`\n"
+                            "- You map: `smoking_status` → `Smoking Status`\n"
+                            "- Set **Patient ID** = `participant_id` and **Date** = `visit_date`\n\n"
+                            "The exported results will include `patient_id_var` and `date_var` so downstream processes can attach each value to the correct person/visit. "
+                            "If your dataset has no relevant date column, set **Date** to `None`."
+                        )
                     patient_id_keys = pre_process_recomendations(to_map_df, 'PID', study)
                     patient_id = st.selectbox('Patient ID:', patient_id_keys) # type: ignore
                     date_keys = pre_process_recomendations(to_map_df, 'date', study)

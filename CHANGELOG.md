@@ -3,6 +3,26 @@ All notable changes to this project will be documented in this file.
 
 Format: Keep a Changelog. Versioning: Semantic Versioning.
 
+## [0.4.1] - 2025-12-12
+### Fixed
+- Removed remaining unsafe runtime `eval()` usage in Map Studies sorting logic.
+  - Replaced with safe parsing via `ast.literal_eval()` with graceful fallback.
+  - File: `app/components/map_study.py`
+
+### Added
+- Session-scoped embedding cache to reduce repeat embedding calls.
+  - Cache key: provider + embedding model + sha256(text) (stored in `st.session_state`).
+  - File: `app/components/ai_provider.py`
+
+- Map Studies UI safeguards:
+  - Hide target codebook variables already used in any non-`To do` mapping status to reduce accidental duplicate mappings.
+  - Added inline “How Relational Mode works (example)” help expander when Relational Mode is enabled.
+  - File: `app/components/map_study.py`
+
+### Tests
+- Added regression tests for safe parsing/sorting of `target_distances`.
+  - File: `tests/test_map_study_safe_sort.py`
+
 ## [0.4.0] - 2025-10-16
 ### Fixed
 - Map Studies page showing empty/“not initialized” due to path inconsistencies between tests and app runtime.

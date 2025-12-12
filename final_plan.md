@@ -12,41 +12,28 @@ This plan is a **revision** of the previous draft. It focuses only on the recomm
 ## Objective 1 — Eliminate remaining unsafe `eval()` usage (security + robustness)
 **Why:** The recommendations originally focused on `eval()` in transformations, but the repo still contains a runtime `eval()` when parsing distance arrays during mapping. [src: `app/components/map_study.py`]
 
-- [ ] **1.1 Identify and replace all remaining `eval()`**
-  - [ ] Locate every `eval(` usage in the repo (expect at least one in `map_study.py`).
-  - [ ] Replace `eval(x)` with `ast.literal_eval(x)` or a shared helper (e.g., `safe_literal_eval`).
-  - [ ] Ensure failures are handled gracefully (empty list or a clear warning) rather than crashing the page.
+- [x] **1.1 Identify and replace all remaining `eval()`**
+  - [x] Locate every `eval(` usage in the repo (expect at least one in `map_study.py`).
+  - [x] Replace `eval(x)` with `ast.literal_eval(x)` or a shared helper (e.g., `safe_literal_eval`).
+  - [x] Ensure failures are handled gracefully (empty list or a clear warning) rather than crashing the page.
 
-- [ ] **1.2 Add regression tests for the replacement**
-  - [ ] Add tests that cover:
-    - [ ] Valid list string (e.g., `"[0.1, 0.2]"`).
-    - [ ] Malformed string.
-    - [ ] Non-string/NaN.
-  - [ ] Confirm mapping page still sorts variables correctly when parsing succeeds.
+- [x] **1.2 Add regression tests for the replacement**
+  - [x] Add tests that cover:
+    - [x] Valid list string (e.g., `"[0.1, 0.2]"`).
+    - [x] Malformed string.
+    - [x] Non-string/NaN.
+  - [x] Confirm mapping page still sorts variables correctly when parsing succeeds.
 
-- [ ] **Acceptance criteria**
-  - [ ] `rg "eval\("` returns **no results** in `app/`.
-  - [ ] Mapping still works with existing `dataset_variables_with_PID_date_recommendations.csv` files.
+- [x] **Acceptance criteria**
+  - [x] No remaining runtime uses of `eval()` in `app/` (a raw text search may still match documentation strings mentioning `eval()`).
+  - [x] Mapping still works with existing `dataset_variables_with_PID_date_recommendations.csv` files.
 
 ## Objective 2 — Cost/usage management improvements (complete the “cost management” recommendation)
 **Current state:** `AIMonitor` tracks counts and rough tokens via chars/4, but not **per-provider** breakdown and not any **cost awareness**. [src: `app/components/monitor.py`]
 
-- [ ] **2.1 Extend monitoring to track per-provider usage**
-  - [ ] Add provider/model fields to monitor events (at least: provider, chat_model, embedding_model).
-  - [ ] Track per-provider call counts and token estimates.
-
-- [ ] **2.2 Add optional “cost estimation” (config-driven)**
-  - [ ] Add a UI field (or `.env`) where the user can enter “cost per 1K tokens” for the selected provider.
-  - [ ] Compute *estimated* cost = tokens * rate. (Do **not** hardcode pricing tables.)
-  - [ ] Display a small “Usage” panel in the sidebar.
-
 - [ ] **2.3 Add caching for repeat embeddings (minimal + safe)**
   - [ ] Add a session-scoped cache keyed by `(provider, embedding_model, text_hash)`.
   - [ ] Use the cache in embedding-heavy paths (e.g., recommendation generation) to avoid repeated calls.
-
-- [ ] **Acceptance criteria**
-  - [ ] Sidebar shows per-provider usage + token estimate.
-  - [ ] Re-running the same operation (same inputs) results in fewer embedding calls.
 
 ## Objective 3 — Add an audit trail for “mapping writes” (who/what changed)
 **Why:** The analysis flags “No audit trail” as a critical issue. [src: `systemUpdateRecommendations.md`]

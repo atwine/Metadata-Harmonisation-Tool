@@ -7,6 +7,7 @@ while handling provider-specific differences, error handling, and retry logic.
 
 import time
 import logging
+import hashlib
 from typing import List, Dict, Any, Optional, Union
 import sys
 import os
@@ -179,6 +180,29 @@ class AIProviderWrapper:
         Raises:
             AIProviderError: If embedding generation fails
         """
+        # PERFORMANCE: session-scoped cache to avoid repeating identical embedding calls
+        # Keyed by provider + embedding model + hash(text). This reduces repeat calls when rerunning the same workflow.
+        try:
+            _provider_name = getattr(self.config.provider, 'value', str(self.config.provider))
+        except Exception:
+            _provider_name = str(getattr(self.config, 'provider', 'unknown'))
+        _model_name = str(getattr(self.config, 'embedding_model', ''))
+        try:
+            _text_bytes = (text or '').encode('utf-8')
+        except Exception:
+            _text_bytes = b''
+        _text_hash = hashlib.sha256(_text_bytes).hexdigest()
+        _cache_key = f"{_provider_name}|{_model_name}|{_text_hash}"
+        try:
+            _cache = st.session_state.setdefault('embedding_cache', {})
+            if isinstance(_cache, dict) and _cache_key in _cache:
+                cached = _cache.get(_cache_key)
+                if isinstance(cached, list) and cached:
+                    return cached
+        except Exception:
+            # Cache is a best-effort optimization; never fail the request because caching failed.
+            pass
+
         def _generate():
             try:
                 client = self.config.get_client()
@@ -218,6 +242,16 @@ class AIProviderWrapper:
         try:
             result = self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
             monitor.record_embed(success=True)
+            # Cache successful embedding for this session (bounded best-effort)
+            try:
+                _cache = st.session_state.setdefault('embedding_cache', {})
+                if isinstance(_cache, dict):
+                    # Simple safety bound to prevent unbounded session growth
+                    if len(_cache) > 2000:
+                        _cache.clear()
+                    _cache[_cache_key] = result
+            except Exception:
+                pass
             return result
         except AIProviderError:
             monitor.record_embed(success=False)
