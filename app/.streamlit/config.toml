@@ -1,0 +1,4 @@
+[client]
+# WIZARD NAV: hide Streamlit's default multipage navigation so users use the custom button nav.
+# [src: https://docs.streamlit.io/develop/tutorials/multipage/st.page_link-nav]
+showSidebarNavigation = false
