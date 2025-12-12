@@ -5,8 +5,11 @@ import duckdb
 import time
 import numpy as np
 import ast
+import json
+import hashlib
+from datetime import datetime, timezone
 from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion, validate_expression
-from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations
+from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations, get_ai_provider
 from .validation import render_validation_widget
 
 fs = fsspec.filesystem("")
@@ -22,7 +25,6 @@ mapping_options = ['To do',
 
 if 'transformation_instructions' not in st.session_state:
     st.session_state.transformation_instructions = {}
-
 
 # SECURITY: safe parsing helper for list-like values stored in CSVs (used for sorting).
 # Kept at module scope so it can be covered by unit tests.
@@ -86,9 +88,67 @@ def write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, 
     st.write('The following has been saved:')
     st.write(df_new)
     df_old = pd.read_csv(results_file)
+    # AUDIT: capture the previous saved values for this study_var before overwrite.
+    # This enables traceability for shared/compliance workflows.
+    try:
+        _prev_df = df_old.loc[df_old['study_var'] == variable_to_map]
+        _prev_row = _prev_df.iloc[-1].to_dict() if len(_prev_df) else None
+    except Exception:
+        _prev_row = None
     df_updated = pd.concat([df_old, df_new], ignore_index=True)
     df_updated = df_updated.drop_duplicates(subset=['study_var'], keep='last')
     df_updated.to_csv(results_file, index=False)
+
+    # AUDIT: append-only JSONL audit log under logs/.
+    # Minimal format: timestamp + operator + provider info + previous/new record.
+    try:
+        fs.mkdirs('logs', exist_ok=True)
+        operator_name = str(st.session_state.get('operator_name', '') or '').strip()
+        try:
+            ai_provider = get_ai_provider()
+            provider_info = ai_provider.get_provider_info() if ai_provider else None
+        except Exception:
+            provider_info = None
+
+        def _json_safe(v):
+            try:
+                if pd.isna(v):
+                    return None
+            except Exception:
+                pass
+            return v
+
+        new_row = df_new.iloc[0].to_dict()
+        new_row = {k: _json_safe(v) for k, v in new_row.items()}
+        prev_row = {k: _json_safe(v) for k, v in _prev_row.items()} if isinstance(_prev_row, dict) else None
+        ti = new_row.get('transformation_instructions')
+        ti_hash = None
+        try:
+            if isinstance(ti, str) and ti.strip():
+                ti_hash = hashlib.sha256(ti.encode('utf-8')).hexdigest()
+        except Exception:
+            ti_hash = None
+
+        audit_record = {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'study': study,
+            'study_var': variable_to_map,
+            'operator': operator_name,
+            'provider_info': provider_info,
+            # AUDIT: duplicate key fields at top-level for easy filtering without parsing nested records.
+            'codebook_var': new_row.get('codebook_var'),
+            'marked': new_row.get('marked'),
+            'notes': new_row.get('notes'),
+            'transformation_type': new_row.get('transformation_type'),
+            'transformation_instructions_sha256': ti_hash,
+            'previous': prev_row,
+            'new': new_row,
+        }
+        with fs.open('logs/mapping_audit.jsonl', 'a') as f:
+            f.write(json.dumps(audit_record, default=str) + '\n')
+    except Exception:
+        # AUDIT: never block saving mappings if audit logging fails.
+        pass
     add_to_session_state(study, patient_id_var, date_var)
     # Success confirmation for completed action
     st.success('Mapping saved successfully.')
@@ -191,6 +251,30 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
         else:
             # Render validation panel for codebook and study inputs
             render_validation_widget(study)
+
+            # AUDIT: operator name captured for traceability/compliance.
+            # Stored in session state and written into each audit record.
+            if 'operator_name' not in st.session_state:
+                st.session_state['operator_name'] = ''
+            st.text_input('Operator name (for audit trail):', key='operator_name')
+
+            # AUDIT: optional viewer for recent writes.
+            try:
+                if fs.exists('logs/mapping_audit.jsonl'):
+                    with st.expander('Audit trail (last 5 writes)', expanded=False):
+                        with fs.open('logs/mapping_audit.jsonl', 'r') as f:
+                            _txt = f.read()
+                        # Basic cap to avoid rendering huge logs in the UI.
+                        _tail = _txt[-20000:]
+                        _lines = [ln for ln in _tail.splitlines() if ln.strip()]
+                        _lines = _lines[-5:]
+                        for ln in _lines:
+                            try:
+                                st.json(json.loads(ln))
+                            except Exception:
+                                st.code(ln)
+            except Exception:
+                pass
 
             vars_df = pd.read_csv(
                 f'{input_path}/{study}/dataset_variables_with_PID_date_recommendations.csv'

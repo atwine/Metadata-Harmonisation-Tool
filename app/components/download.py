@@ -57,6 +57,21 @@ def download_page():
                 "Export format",
                 options=["Mapping only (CSV)", "Full data package (ZIP)"]
             )
+            # AUDIT: allow exporting the append-only audit trail for compliance/traceability.
+            try:
+                if fs.exists('logs/mapping_audit.jsonl'):
+                    with fs.open('logs/mapping_audit.jsonl', 'r') as f:
+                        audit_txt = f.read()
+                    st.download_button(
+                        label="Download audit log (JSONL)",
+                        data=audit_txt.encode('utf-8'),
+                        file_name='mapping_audit.jsonl',
+                        mime='application/json',
+                    )
+                else:
+                    st.caption('Audit log not found (no mapping writes recorded yet).')
+            except Exception:
+                st.caption('Audit log not available.')
             if export_mode == "Mapping only (CSV)":
                 st.download_button(
                     label="Download mapping CSV",

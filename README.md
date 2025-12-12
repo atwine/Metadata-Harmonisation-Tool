@@ -27,15 +27,18 @@ The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker
 ### Prerequisites
 
 1.  **Docker**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system (Windows, Mac, or Linux).
-2.  **Ollama**: This application uses [Ollama](https://ollama.ai/) for all AI functionality.
-    -   Download and install from [ollama.ai](https://ollama.ai/).
-    -   Ensure Ollama is running (you should see the Ollama icon in your system tray).
-    -   Pull the required models by running the following commands in your terminal:
-        ```bash
-        ollama pull llama3.1:8b
-        ollama pull nomic-embed-text
-        ```
-    -   Verify the models are installed with `ollama list`.
+2.  **AI Provider**: Configure one of the supported AI providers in the app sidebar (**AI Configuration**):
+    -   **Ollama (Local)** (recommended default):
+        -   Install from [ollama.ai](https://ollama.ai/)
+        -   Ensure Ollama is running
+        -   Pull example models:
+            ```bash
+            ollama pull llama3.1:8b
+            ollama pull nomic-embed-text
+            ```
+    -   **OpenAI**: Requires an `OPENAI_API_KEY`.
+    -   **Anthropic (chat-only)**: Requires an `ANTHROPIC_API_KEY`.
+    -   **Azure OpenAI**: Requires an Azure endpoint + API key.
 
 ### Step 1: Clone the Repository
 
@@ -57,6 +60,16 @@ copy .env.example .env
 ```
 
 Open the `.env` file. For a standard local setup, you don't need to change anything. The default `OLLAMA_BASE_URL` is configured to connect to Ollama running on your host machine from within the Docker container.
+
+### AI provider configuration (Ollama / OpenAI / Anthropic / Azure OpenAI)
+
+This app supports multiple AI providers. Configure it in the sidebar (**AI Configuration**):
+
+-   **Ollama (Local)**: set Base URL and choose local chat + embedding models.
+-   **OpenAI**: provide `OPENAI_API_KEY`, choose chat model + embedding model.
+-   **Anthropic (chat-only)**: provide `ANTHROPIC_API_KEY` and choose a Claude model.
+    -   Note: Anthropic does not provide embeddings; features that need embeddings require Ollama/OpenAI/Azure.
+-   **Azure OpenAI**: provide your Azure endpoint + API key, and set deployment/model names.
 
 ### Step 3: Build and Run the Application
 
@@ -121,7 +134,8 @@ conda env create -f environment.yml
 conda activate harmonisation_env
 pip install -r requirements.txt
 
-# Make sure Ollama is running and models are downloaded
+# Configure an AI provider in the sidebar (AI Configuration).
+# If using Ollama, make sure it is running and models are downloaded.
 cd app/
 streamlit run app.py
 ```
@@ -133,6 +147,11 @@ A validation script is included to check your configuration and test AI provider
 ```bash
 python validate_config.py --all-providers
 ```
+
+### Setting AI request timeouts
+
+Use the sidebar **AI Configuration** panel:
+- **Request timeout (seconds)** controls the maximum time to wait for AI provider responses before timing out.
 
 ---
 
@@ -161,7 +180,9 @@ From here incoming study data whichs need to be mapped to the target codebook ca
 
 #### Step 3: Initialise Tool
 
-Once studies have been uploaded, you can run the variable description completion and ontology recommendation engines. This tool uses a local Ollama instance to power its AI features, so please ensure Ollama is installed and running on your machine before you proceed. You will be given the option to fine-tune the LLM prompt used by the description completion engine.
+Once studies have been uploaded, you can run the variable description completion and ontology recommendation engines. You will be given the option to fine-tune the LLM prompt used by the description completion engine.
+
+Before running the Recommendation Engine, ensure an AI provider is configured and connected in the sidebar (**AI Configuration**). If you use Ollama, ensure it is running and models are available.
 
 #### Step 4: Map Datasets to Codebook
 
@@ -198,6 +219,13 @@ The second step is the **ontology recommendation engine**. This again uses text 
 -   **Is Ollama running?**: Verify the Ollama application is running on your host system.
 -   **Models not found?**: Run `ollama list` to confirm `llama3.1:8b` and `nomic-embed-text` are downloaded.
 -   **Firewall**: Ensure no firewall or antivirus software is blocking the connection to `http://localhost:11434`.
+
+---
+
+## 🔒 Security notes
+
+- **Direct transformations** are evaluated using a restricted evaluator (simple arithmetic on variable `x` only).
+- **Categorical mappings** are parsed using `ast.literal_eval()` (no `eval()`), and must be Python dict literals.
 
 ---
 

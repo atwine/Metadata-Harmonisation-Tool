@@ -14,6 +14,12 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
   - Cache key: provider + embedding model + sha256(text) (stored in `st.session_state`).
   - File: `app/components/ai_provider.py`
 
+- Append-only audit trail for mapping writes.
+  - Logs previous vs new mapping values to `logs/mapping_audit.jsonl` on each Submit.
+  - Captures operator name and active AI provider info for traceability.
+  - Added Download page button to export the audit log.
+  - Files: `app/components/map_study.py`, `app/components/download.py`
+
 - Map Studies UI safeguards:
   - Hide target codebook variables already used in any non-`To do` mapping status to reduce accidental duplicate mappings.
   - Added inline “How Relational Mode works (example)” help expander when Relational Mode is enabled.

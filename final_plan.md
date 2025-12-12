@@ -40,59 +40,38 @@ This plan is a **revision** of the previous draft. It focuses only on the recomm
 
 Given this is a Streamlit single-user app today, implement the **minimal** useful audit trail first:
 
-- [ ] **3.1 Define the audit record format**
-  - [ ] Fields: timestamp, study, study_var, codebook_var, marked, notes, transformation_type, transformation_instructions (or hash), provider info.
-  - [ ] Storage: append-only JSONL or CSV under `logs/`.
+- [x] **3.1 Define the audit record format**
+  - [x] Fields: timestamp, study, study_var, codebook_var, marked, notes, transformation_type, transformation_instructions (or hash), provider info.
+  - [x] Storage: append-only JSONL or CSV under `logs/`.
 
-- [ ] **3.2 Implement audit logging for mapping updates**
-  - [ ] Hook into `write_to_results()` so every save appends an audit entry. [src: `app/components/map_study.py`]
-  - [ ] Capture both “new value” and “previous value” (read prior row before overwrite).
+- [x] **3.2 Implement audit logging for mapping updates**
+  - [x] Hook into `write_to_results()` so every save appends an audit entry. [src: `app/components/map_study.py`]
+  - [x] Capture both “new value” and “previous value” (read prior row before overwrite).
 
-- [ ] **3.3 Add a simple UI viewer/export**
-  - [ ] “Download audit log” button on the Download page.
-  - [ ] Optional: a small expander on Map Studies to show last N audit events.
+- [x] **3.3 Add a simple UI viewer/export**
+  - [x] “Download audit log” button on the Download page.
+  - [x] Optional: a small expander on Map Studies to show last N audit events.
 
-- [ ] **Acceptance criteria**
-  - [ ] Every “Mapping saved successfully.” event results in an appended audit entry. [src: `app/components/map_study.py`]
-  - [ ] Audit log survives Streamlit reruns.
+- [x] **Acceptance criteria**
+  - [x] Every “Mapping saved successfully.” event results in an appended audit entry. [src: `app/components/map_study.py`]
+  - [x] Audit log survives Streamlit reruns.
 
-## Objective 4 — CI test automation (recommended maintenance)
-**Current state:** There is a real `tests/` suite, but no GitHub Actions workflow directory present. [src: `.github/`]
-
-- [ ] **4.1 Add GitHub Actions workflow to run tests**
-  - [ ] Create `.github/workflows/python-tests.yml`.
-  - [ ] Steps:
-    - [ ] Checkout.
-    - [ ] Setup Python.
-    - [ ] Install dependencies.
-    - [ ] Run `pytest`.
-
-- [ ] **4.2 Add a minimal “packaging smoke” job**
-  - [ ] Run the existing packaging smoke test(s) already present in `tests/`.
-
-- [ ] **Acceptance criteria**
-  - [ ] PRs/commits show a green check when tests pass.
 
 ## Objective 5 — Documentation alignment (reduce confusion)
 **Current state:** README still states “Ollama for all AI functionality”, but the app includes multi-provider configuration UI. [src: `README.md`]
 
-- [ ] **5.1 Update README to reflect multi-provider support**
-  - [ ] Document how to use:
-    - [ ] Ollama
-    - [ ] OpenAI
-    - [ ] Anthropic (chat-only)
-    - [ ] Azure OpenAI
-  - [ ] Add a short “How to set timeouts” note (AI Configuration panel).
+- [x] **5.1 Update README to reflect multi-provider support**
+  - [x] Document how to use:
+    - [x] Ollama
+    - [x] OpenAI
+    - [x] Anthropic (chat-only)
+    - [x] Azure OpenAI
+  - [x] Add a short “How to set timeouts” note (AI Configuration panel).
 
-- [ ] **5.2 Add “Security notes” section**
-  - [ ] Explain that transformations use a restricted evaluator and dict parsing uses `ast.literal_eval`.
+- [x] **5.2 Add “Security notes” section**
+  - [x] Explain that transformations use a restricted evaluator and dict parsing uses `ast.literal_eval`.
 
-- [ ] **Acceptance criteria**
-  - [ ] README no longer claims Ollama is the only provider.
+- [x] **Acceptance criteria**
+  - [x] README no longer claims Ollama is the only provider.
 
-## Optional / Deferred (only if you explicitly want these)
-These were mentioned in the original analysis, but they are **larger product/architecture changes** and should be treated as separate projects:
 
-- [ ] **D1 — Replace file-based storage with a database-backed store** (DuckDB/SQLite)
-- [ ] **D2 — Multi-user accounts and collaboration** (authn/authz)
-- [ ] **D3 — External alerting (Slack/email) + ops-grade monitoring**
