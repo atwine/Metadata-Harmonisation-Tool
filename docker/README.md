@@ -265,6 +265,16 @@ The Docker Compose setup includes several profiles for optional services:
 3. **Memory issues**: Adjust resource limits in production config
 4. **AI provider connectivity**: Check network configuration and API keys
 
+### Ollama in Docker Compose: Connection Test fails (no models yet)
+
+If Ollama is reachable but the app's **Connection Test** fails, Ollama likely has no models yet. Pull the starter models inside the Ollama container and verify:
+
+```bash
+docker exec -it ollama-server ollama pull llama3.1:8b
+docker exec -it ollama-server ollama pull nomic-embed-text
+docker exec -it ollama-server ollama ls
+```
+
 ### Debugging
 
 ```bash

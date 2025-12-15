@@ -229,6 +229,12 @@ The second step is the **ontology recommendation engine**. This again uses text 
 -   **Connection Failed Error**: If the application in Docker can't connect to Ollama, ensure `OLLAMA_BASE_URL` in your `.env` file is set correctly:
     -   **Option A (Ollama in Docker Compose)**: `http://ollama:11434`
     -   **Option B (host Ollama on Windows/Mac)**: `http://host.docker.internal:11434`
+-   **Connection Test fails but Ollama is reachable**: If `/api/tags` responds but the app's **Connection Test** fails, Ollama likely has no models yet (first run download). You can pull the starter models inside the Ollama container and verify:
+    ```bash
+    docker exec -it ollama-server ollama pull llama3.1:8b
+    docker exec -it ollama-server ollama pull nomic-embed-text
+    docker exec -it ollama-server ollama ls
+    ```
 -   **Check Container Logs**: If the app fails to start, check the logs for errors:
     ```bash
     docker logs metadata-harmonisation-tool
