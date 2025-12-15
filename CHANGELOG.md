@@ -84,6 +84,11 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
   - Dockerfile: create `/app/results` (instead of `/app/output`) to match runtime paths.
   - Compose: mount `results/` for persistence (instead of `output/`) and keep `input/` writable in production because uploads create new studies.
   - Compose: removed dev code bind-mounts from base config (kept in `docker-compose.dev.yml`) to avoid leaking into production merges.
+  - Compose: publish Ollama on host port `11435` by default (configurable via `OLLAMA_PUBLISHED_PORT`) to avoid conflicts with a host Ollama using `11434`.
   - Ollama: enabled by default; added one-shot `ollama-init` to pre-pull `llama3.1:8b` and `nomic-embed-text` on first run; fixed Ollama healthcheck to use `ollama ls`.
+- Documentation updates (Ollama modes + troubleshooting):
+  - Make Docker Compose the recommended/primary run method; move direct `docker run` to an alternative path.
+  - Document both Ollama options (Ollama in Compose vs host Ollama) and the correct base URLs for each.
+  - Add troubleshooting steps for failed Connection Test when Ollama is reachable but models are missing, including manual model pull commands.
 - Optional: preview/dry-run for the initialisation prompt (no file writes).
 - Optional: overwrite-policy toggle for existing descriptions (default off).
