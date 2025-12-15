@@ -42,7 +42,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY . .
 
 # Create necessary directories and set permissions
-RUN mkdir -p /app/input /app/output /app/logs /home/appuser/.streamlit && \
+RUN mkdir -p /app/input /app/results /app/logs /home/appuser/.streamlit && \
     chown -R appuser:appuser /app /home/appuser
 
 # Switch to non-root user

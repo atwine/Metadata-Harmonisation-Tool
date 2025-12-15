@@ -79,5 +79,11 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
 - Path behavior: prefers `app/input` and `app/results` when running the app; falls back to repo-root `input` and `results` to support tests/CI.
 
 ## [Unreleased]
+- Docker/Compose reliability fixes and Ollama bootstrap:
+  - Added repo-root `.dockerignore` so build context exclusions apply correctly (avoid baking in `venv/` and `.env`), while keeping runtime-required `about.md`.
+  - Dockerfile: create `/app/results` (instead of `/app/output`) to match runtime paths.
+  - Compose: mount `results/` for persistence (instead of `output/`) and keep `input/` writable in production because uploads create new studies.
+  - Compose: removed dev code bind-mounts from base config (kept in `docker-compose.dev.yml`) to avoid leaking into production merges.
+  - Ollama: enabled by default; added one-shot `ollama-init` to pre-pull `llama3.1:8b` and `nomic-embed-text` on first run; fixed Ollama healthcheck to use `ollama ls`.
 - Optional: preview/dry-run for the initialisation prompt (no file writes).
 - Optional: overwrite-policy toggle for existing descriptions (default off).

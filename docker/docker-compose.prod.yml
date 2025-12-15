@@ -22,8 +22,9 @@ services:
       
     # Production volume mounts (read-only where possible)
     volumes:
-      - ../input:/app/input:ro
-      - ../output:/app/output
+      # NOTE: input/ must be writable because the app can create new studies under input/. [src: app/components/upload_study.py]
+      - ../input:/app/input
+      - ../results:/app/results
       - ../logs:/app/logs
       
       # Remove development code mounts for security

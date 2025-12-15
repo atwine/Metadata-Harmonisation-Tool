@@ -34,15 +34,17 @@ services:
     env_file:
       - ../.env
     volumes:
-      # Mount input and output directories for data persistence
+      # Mount input/results/logs directories for data persistence
       - ../input:/app/input
-      - ../output:/app/output
+      - ../results:/app/results
       - ../logs:/app/logs
-      
-      # Mount source code for development (comment out for production)
-      - ../app:/app/app
-      - ../config.py:/app/config.py
-      
+
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
@@ -58,13 +60,16 @@ services:
     image: ollama/ollama:latest
     container_name: ollama-server
     ports:
-      - "11434:11434"
+      # Default to 11435 on the host to avoid conflicts with a locally running Ollama (which commonly uses 11434).
+      - "${OLLAMA_PUBLISHED_PORT:-11435}:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      - OLLAMA_HOST=0.0.0.0
+      # Bind to all interfaces so other containers can reach the server.
+      - OLLAMA_HOST=0.0.0.0:11434
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      # Use `ollama ls` to list models. [src: https://docs.ollama.com/cli]
+      test: ["CMD", "ollama", "ls"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -72,8 +77,27 @@ services:
     restart: unless-stopped
     networks:
       - metadata-network
-    profiles:
-      - ollama  # Use with: docker-compose --profile ollama up
+
+  # One-shot bootstrap container to pre-download models on first run.
+  # Uses Ollama HTTP API to pull models. [src: https://docs.ollama.com/api/pull]
+  ollama-init:
+    image: curlimages/curl:8.12.1
+    container_name: ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      set -e;
+      echo 'Waiting for Ollama...';
+      until curl -sf http://ollama:11434/api/tags >/dev/null; do sleep 2; done;
+      echo 'Pulling starter models...';
+      curl -sf http://ollama:11434/api/pull -d '{"model": "llama3.1:8b"}' >/dev/null;
+      curl -sf http://ollama:11434/api/pull -d '{"model": "nomic-embed-text"}' >/dev/null;
+      echo 'Model bootstrap complete.';
+    restart: "no"
+    networks:
+      - metadata-network
 
 volumes:
   ollama_data:

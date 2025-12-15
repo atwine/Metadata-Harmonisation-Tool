@@ -27,15 +27,18 @@ The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker
 ### Prerequisites
 
 1.  **Docker**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) for your operating system (Windows, Mac, or Linux).
-2.  **AI Provider**: Configure one of the supported AI providers in the app sidebar (**AI Configuration**):
-    -   **Ollama (Local)** (recommended default):
-        -   Install from [ollama.ai](https://ollama.ai/)
-        -   Ensure Ollama is running
+2.  **Choose how Ollama is provided (two supported options)**:
+    -   **Option A (Recommended): Ollama runs in Docker Compose**
+        -   No local Ollama install required.
+        -   Compose will start an `ollama` container and pre-download the default models on first run.
+    -   **Option B: Ollama runs on your host machine (outside Docker)**
+        -   Install Ollama from [ollama.ai](https://ollama.ai/) and ensure it is running.
         -   Pull example models:
             ```bash
             ollama pull llama3.1:8b
             ollama pull nomic-embed-text
             ```
+3.  **Optional cloud providers (configured in the sidebar: AI Configuration)**:
     -   **OpenAI**: Requires an `OPENAI_API_KEY`.
     -   **Anthropic (chat-only)**: Requires an `ANTHROPIC_API_KEY`.
     -   **Azure OpenAI**: Requires an Azure endpoint + API key.
@@ -59,7 +62,12 @@ cp .env.example .env
 copy .env.example .env
 ```
 
-Open the `.env` file. For a standard local setup, you don't need to change anything. The default `OLLAMA_BASE_URL` is configured to connect to Ollama running on your host machine from within the Docker container.
+Open the `.env` file and set `OLLAMA_BASE_URL` depending on your chosen Ollama option:
+
+- **Option A (Ollama in Docker Compose)**: set `OLLAMA_BASE_URL=http://ollama:11434`
+- **Option B (host Ollama, app in Docker on Windows/Mac)**: set `OLLAMA_BASE_URL=http://host.docker.internal:11434`
+
+Note: when using Option A, the Ollama container is published on host port `11435` by default to avoid conflicts with an existing host Ollama (`11434`). You normally don't need to change this.
 
 ### AI provider configuration (Ollama / OpenAI / Anthropic / Azure OpenAI)
 
@@ -75,9 +83,19 @@ This app supports multiple AI providers. Configure it in the sidebar (**AI Confi
 
 Use Docker Compose to build the image and start the application.
 
-```bash
-docker-compose -f docker/docker-compose.yml up --build -d
-```
+- **Option A (Ollama in Docker Compose)**:
+  ```bash
+  docker compose -f docker/docker-compose.yml up --build -d
+  ```
+
+- **Option B (host Ollama, start only the app container)**:
+  - Ensure host Ollama is running and models are downloaded.
+  - Set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in `.env`.
+  - Start only the app service (no Docker Ollama):
+    ```bash
+    docker compose -f docker/docker-compose.yml up --build --no-deps -d metadata-harmonisation-tool
+    ```
+    [src: https://docs.docker.com/compose/how-tos/production/]
 
 -   `--build`: Builds the Docker image from the Dockerfile. You only need to do this the first time or when code changes.
 -   `-d`: Runs the container in detached mode (in the background).
@@ -208,7 +226,9 @@ The second step is the **ontology recommendation engine**. This again uses text 
 
 ### Docker & Ollama Connection
 
--   **Connection Failed Error**: If the application in Docker can't connect to Ollama, ensure `OLLAMA_BASE_URL` in your `.env` file is set correctly. For local development, it should be `http://host.docker.internal:11434`.
+-   **Connection Failed Error**: If the application in Docker can't connect to Ollama, ensure `OLLAMA_BASE_URL` in your `.env` file is set correctly:
+    -   **Option A (Ollama in Docker Compose)**: `http://ollama:11434`
+    -   **Option B (host Ollama on Windows/Mac)**: `http://host.docker.internal:11434`
 -   **Check Container Logs**: If the app fails to start, check the logs for errors:
     ```bash
     docker logs metadata-harmonisation-tool
@@ -217,7 +237,7 @@ The second step is the **ontology recommendation engine**. This again uses text 
 ### General Ollama Issues
 
 -   **Is Ollama running?**: Verify the Ollama application is running on your host system.
--   **Models not found?**: Run `ollama list` to confirm `llama3.1:8b` and `nomic-embed-text` are downloaded.
+-   **Models not found?**: Run `ollama ls` to confirm `llama3.1:8b` and `nomic-embed-text` are downloaded. [src: https://docs.ollama.com/cli]
 -   **Firewall**: Ensure no firewall or antivirus software is blocking the connection to `http://localhost:11434`.
 
 ---

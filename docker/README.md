@@ -13,7 +13,27 @@ This directory contains Docker configuration files for containerizing the Metada
 
 ## Quick Start
 
-### 1. Build the Docker Image
+### 1. Run with Docker Compose (Recommended)
+
+**Option A (Recommended): Ollama in Docker Compose (includes model pre-pull on first run):**
+```bash
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+Notes:
+- The app talks to Ollama inside the Docker network using `OLLAMA_BASE_URL=http://ollama:11434`. [src: docker/docker-compose.yml]
+- The Ollama container is published on host port `11435` by default to avoid conflicts with a host Ollama already using `11434`. [src: docker/docker-compose.yml]
+
+**Option B: Use host Ollama (outside Docker) and run only the app container:**
+- Set `OLLAMA_BASE_URL=http://host.docker.internal:11434`
+- Start only the app service:
+```bash
+docker compose -f docker/docker-compose.yml up --build --no-deps -d metadata-harmonisation-tool
+```
+
+### 2. Alternative: Build and run the image directly (no Docker Compose)
+
+### 2.1 Build the Docker Image
 
 **Linux/Mac:**
 ```bash
@@ -30,7 +50,7 @@ docker\build.bat
 docker build -f docker/Dockerfile -t metadata-harmonisation-tool:latest .
 ```
 
-### Windows quick start (PowerShell/CMD)
+### 2.2 Windows quick start (PowerShell/CMD)
 
 - PowerShell (run from repository root):
 ```powershell
@@ -42,7 +62,7 @@ $env:OLLAMA_BASE_URL="http://host.docker.internal:11434"
 docker run --rm -p 8501:8501 `
   -e OLLAMA_BASE_URL=$env:OLLAMA_BASE_URL `
   -v "$PWD/input":/app/input `
-  -v "$PWD/output":/app/output `
+  -v "$PWD/results":/app/results `
   -v "$PWD/logs":/app/logs `
   metadata-harmonisation-tool:latest
 ```
@@ -57,14 +77,14 @@ set OLLAMA_BASE_URL=http://host.docker.internal:11434
 docker run --rm -p 8501:8501 ^
   -e OLLAMA_BASE_URL=%OLLAMA_BASE_URL% ^
   -v %cd%\input:/app/input ^
-  -v %cd%\output:/app/output ^
+  -v %cd%\results:/app/results ^
   -v %cd%\logs:/app/logs ^
   metadata-harmonisation-tool:latest
 ```
 
 > Tip: In Git Bash, use forward slashes in paths (e.g., `docker/Dockerfile`) and prefer running the build from repo root.
 
-### Run the image directly (host Ollama)
+### 2.3 Run the image directly (host Ollama)
 
 If you are using Ollama running on the host (outside Docker), you can run the image directly and mount local folders for data persistence:
 
@@ -74,22 +94,15 @@ export OLLAMA_BASE_URL=http://host.docker.internal:11434
 docker run --rm -p 8501:8501 \
   -e OLLAMA_BASE_URL=$OLLAMA_BASE_URL \
   -v "$PWD/input":/app/input \
-  -v "$PWD/output":/app/output \
+  -v "$PWD/results":/app/results \
   -v "$PWD/logs":/app/logs \
   metadata-harmonisation-tool:latest
 ```
 
-### 2. Run with Docker Compose
-
-**Basic setup:**
-```bash
-docker-compose -f docker/docker-compose.yml up
-```
-
-### 2.1 Windows-specific notes
+### Windows-specific notes
 
 - **Docker Hub authentication:** run `docker login` in the same shell you plan to build/push from (PowerShell, CMD, or WSL). If you switch shells, re-run `docker login` in that shell.
-- **Compose with host Ollama:** set `OLLAMA_BASE_URL` to `http://host.docker.internal:11434` in your `.env` or pass it in the environment before `docker-compose up`.
+- **Compose with host Ollama:** set `OLLAMA_BASE_URL` to `http://host.docker.internal:11434` in your `.env` or pass it in the environment before `docker compose up`.
 - **Git Bash path quirks:** use forward slashes for file paths (e.g., `-f docker/Dockerfile`).
 
 ### Verifying Docker and Ollama on Windows
@@ -124,12 +137,12 @@ wsl.exe -l -v  # ensure your default distro runs version 2
 
 **Development mode:**
 ```bash
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up
 ```
 
 **Production mode:**
 ```bash
-docker-compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
 ```
 
 ### 3. Access the Application
@@ -162,8 +175,8 @@ AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 
 The Docker setup includes several volume mounts:
 
-- `./input:/app/input:ro` - Input data (read-only)
-- `./output:/app/output` - Output data (read-write)
+- `./input:/app/input` - Input data (read-write)
+- `./results:/app/results` - Results data (read-write)
 - `./logs:/app/logs` - Application logs (read-write)
 
 ## Development Setup
@@ -203,11 +216,9 @@ docker exec -it metadata-harmonisation-tool python test_error_handling.py
 docker-compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
 ```
 
-### With Ollama Service
+### Ollama
 
-```bash
-docker-compose -f docker/docker-compose.yml --profile ollama up -d
-```
+Ollama is enabled by default in the base Compose file.
 
 ### With Nginx Reverse Proxy
 
