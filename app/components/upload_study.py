@@ -77,7 +77,7 @@ def add_study_page():
         variables = st.file_uploader('Variables Table:', type='csv', accept_multiple_files=False, help = "Only CSV format accepted. The File should contain two columns titled 'variable_name' and 'description', If the desription of a variable is unknown the cell should be an empty string.")
         example_data = st.file_uploader('Example Data (optional):', type='csv', accept_multiple_files=False, help = "Optional. To assist in mapping you can upload a file containing example data. The app will automatically select a random subset of this data to display alongside the variable's name and description. Column titles of the example data should correspond to a 'variable_name' in the variables table. ")
         context_docs = st.file_uploader('Contextual Documents (optional):', type=['pdf'], accept_multiple_files=False, help = "This application uses natural language processing to automatically provide variable descriptions. To aid this process you can upload a relevant document such as a study protocol, journal article, or ideally codebook here.")
-        submit = st.form_submit_button(":green[Add New Study]", disabled = disable)
+        submit = st.form_submit_button(":green[Submit]", disabled = disable)  # Clarify action: this submits the filled form; avoids implying creation of an additional study
         if submit:
             success, message = add_new_study(study_title, study_description, variables, example_data, context_docs)
             if success:

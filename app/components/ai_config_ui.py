@@ -74,10 +74,22 @@ class AIConfigUI:
             "Azure OpenAI": AIProvider.AZURE_OPENAI
         }
         
+        # Sticky provider selection: initialize once from existing config/env, then persist via session_state
+        if 'ai_provider_select' not in st.session_state:
+            try:
+                if self.session_key in st.session_state and st.session_state[self.session_key]:
+                    existing = st.session_state[self.session_key]
+                    reverse_map = {v: k for k, v in provider_options.items()}
+                    st.session_state['ai_provider_select'] = reverse_map.get(existing.provider, "Ollama (Local)")
+                else:
+                    st.session_state['ai_provider_select'] = "Ollama (Local)"
+            except Exception:
+                st.session_state['ai_provider_select'] = "Ollama (Local)"
+
         selected_name = st.selectbox(
             "🤖 AI Provider",
             options=list(provider_options.keys()),
-            index=0,
+            key="ai_provider_select",
             help="Select your preferred AI provider"
         )
         
@@ -95,11 +107,14 @@ class AIConfigUI:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Load from environment variable, fallback to localhost for development
-            default_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+            # Sticky Base URL: initialize once from env, then persist via session_state across pages/reruns
+            # IMPORTANT: Only initialize if key doesn't exist - never overwrite existing user input
+            if 'ollama_base_url' not in st.session_state:
+                st.session_state['ollama_base_url'] = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+            
             base_url = st.text_input(
                 "Base URL",
-                value=default_base_url,
+                key="ollama_base_url",
                 help="Ollama server URL"
             )
         

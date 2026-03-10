@@ -31,6 +31,12 @@ The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker
     -   **Option A (Recommended): Ollama runs in Docker Compose**
         -   No local Ollama install required.
         -   Compose will start an `ollama` container and pre-download the default models on first run.
+        -   If models are not present after startup, pull them inside the container:
+            ```bash
+            docker exec -it ollama-server ollama pull llama3.1:8b
+            docker exec -it ollama-server ollama pull nomic-embed-text
+            docker exec -it ollama-server ollama ls
+            ```
     -   **Option B: Ollama runs on your host machine (outside Docker)**
         -   Install Ollama from [ollama.ai](https://ollama.ai/) and ensure it is running.
         -   Pull example models:
@@ -69,11 +75,19 @@ Open the `.env` file and set `OLLAMA_BASE_URL` depending on your chosen Ollama o
 
 Note: when using Option A, the Ollama container is published on host port `11435` by default to avoid conflicts with an existing host Ollama (`11434`). You normally don't need to change this.
 
+> Important
+> - For stability, set the Ollama Base URL in your `.env` file. Due to Streamlit's page reruns, the sidebar Base URL field can reset when navigating between pages. Defining `OLLAMA_BASE_URL` in `.env` keeps the URL consistent across the app.
+> - Recommended values:
+>   - Local Ollama (no Docker): `http://localhost:11434`
+>   - Docker Compose (container-to-container): `http://ollama:11434`
+>   - App in Docker, Ollama on host (Windows/Mac): `http://host.docker.internal:11434`
+
 ### AI provider configuration (Ollama / OpenAI / Anthropic / Azure OpenAI)
 
 This app supports multiple AI providers. Configure it in the sidebar (**AI Configuration**):
 
 -   **Ollama (Local)**: set Base URL and choose local chat + embedding models.
+    - Recommended: set `OLLAMA_BASE_URL` in `.env` for persistence; the sidebar Base URL is a temporary override and may reset on page changes.
 -   **OpenAI**: provide `OPENAI_API_KEY`, choose chat model + embedding model.
 -   **Anthropic (chat-only)**: provide `ANTHROPIC_API_KEY` and choose a Claude model.
     -   Note: Anthropic does not provide embeddings; features that need embeddings require Ollama/OpenAI/Azure.
@@ -145,6 +159,12 @@ Scripts are provided to simplify pushing the image to Docker Hub.
 ### Running without Docker (Alternative)
 
 If you prefer not to use Docker, you can set up a local Python environment using Conda or Micromamba.
+
+Note: If you just installed Conda and the `conda` or `conda activate` commands are not recognized, initialize your shell once and then restart your terminal:
+
+- Windows PowerShell: `conda init powershell`
+- Windows Command Prompt (cmd): `conda init cmd.exe`
+- macOS/Linux (bash): `conda init bash`
 
 ```bash
 # Assumes you have conda or micromamba installed
