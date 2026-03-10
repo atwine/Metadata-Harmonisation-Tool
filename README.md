@@ -20,9 +20,16 @@ This dramatically speeds up the mapping process.
 
 ![alt text](image.png)
 
-## 🚀 Getting Started (Recommended: Docker)
+## 🚀 Quick Start
 
 The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker Compose. This method handles all Python dependencies and configuration for you.
+
+### Pick your setup
+
+- [Option A: Docker](#option-a-docker) (recommended)
+- [Option B: No Docker](#option-b-no-docker)
+
+### Option A: Docker
 
 ### Prerequisites
 
@@ -124,6 +131,44 @@ You should now see the Metadata Harmonisation Tool interface.
 
 ---
 
+### Option B: No Docker
+
+If you prefer not to use Docker, you can set up a local Python environment using Conda or Micromamba.
+
+Note: If you just installed Conda and the `conda` or `conda activate` commands are not recognized, initialize your shell once and then restart your terminal:
+
+- Windows PowerShell: `conda init powershell`
+- Windows Command Prompt (cmd): `conda init cmd.exe`
+- macOS/Linux (bash): `conda init bash`
+
+```bash
+# Create and activate environment
+conda env create -f environment.yml
+conda activate harmonisation_env
+pip install -r requirements.txt
+
+# Configure the app
+# 1) Copy .env and set OLLAMA_BASE_URL as described above (Quick Start → Step 2)
+# 2) If using local Ollama, ensure models are present
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+
+# Run the app
+cd app/
+streamlit run app.py
+```
+
+Verify your setup:
+
+- In the sidebar, open "AI Configuration" → run the Connection Test
+- Or via CLI:
+
+```bash
+python validate_config.py --all-providers
+```
+
+Open http://localhost:8501 in your browser.
+
 ## 🚢 Deployment
 
 ### Building the Image
@@ -155,28 +200,6 @@ Scripts are provided to simplify pushing the image to Docker Hub.
 ---
 
 ## 🔧 Development
-
-### Running without Docker (Alternative)
-
-If you prefer not to use Docker, you can set up a local Python environment using Conda or Micromamba.
-
-Note: If you just installed Conda and the `conda` or `conda activate` commands are not recognized, initialize your shell once and then restart your terminal:
-
-- Windows PowerShell: `conda init powershell`
-- Windows Command Prompt (cmd): `conda init cmd.exe`
-- macOS/Linux (bash): `conda init bash`
-
-```bash
-# Assumes you have conda or micromamba installed
-conda env create -f environment.yml
-conda activate harmonisation_env
-pip install -r requirements.txt
-
-# Configure an AI provider in the sidebar (AI Configuration).
-# If using Ollama, make sure it is running and models are downloaded.
-cd app/
-streamlit run app.py
-```
 
 ### Configuration Validation
 
