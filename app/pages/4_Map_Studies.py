@@ -20,7 +20,7 @@ mapping_options = [
 st.set_page_config(layout="wide", page_title="Mapping Tool")
 
 study, variables_status = None, None
-show_about, original_order, relational_mode, enable_transformations = False, False, True, True
+show_about, original_order, relational_mode, enable_transformations = False, False, False, False
 
 with st.sidebar:
     st.write("## Mapping App")
@@ -70,9 +70,9 @@ with st.sidebar:
 
     col3, col4 = st.columns(2)
     with col3:
-        relational_mode = st.checkbox('Relational Mode', value=True, help='Enable this to map date and index (eg patient ID) to each variable. Use this if the goal is to populate a relational database.')
+        relational_mode = st.checkbox('Relational Mode', value=False, help='Enable this to map date and index (eg patient ID) to each variable. Use this if the goal is to populate a relational database.')
     with col4:
-        enable_transformations = st.checkbox('Transform Mode', value=True, help='This adds functionality to create and test transformations instructions for each variable. These instructions can then be used to transform data to a common format. Example transformation instructions available [here](https://github.com/csag-uct/Metadata-Harmonisation-Tool/pull/19#issuecomment-2356409576). Only available if example data is provided.')
+        enable_transformations = st.checkbox('Transform Mode', value=False, help='This adds functionality to create and test transformations instructions for each variable. These instructions can then be used to transform data to a common format. Example transformation instructions available [here](https://github.com/csag-uct/Metadata-Harmonisation-Tool/pull/19#issuecomment-2356409576). Only available if example data is provided.')
 
 if study is not None and variables_status is not None:
     map_study(study, variables_status, show_about, original_order, relational_mode, enable_transformations)

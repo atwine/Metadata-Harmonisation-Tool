@@ -475,141 +475,144 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                     if 'transformation_instructions' not in st.session_state:
                         st.session_state.transformation_instructions = {}
 
-                    dtype_options = ['float', 'integer', 'string', 'boolean']
-                    # Ensure defaults exist for all branches; Categorical does not use these,
-                    # but test_transformation() is called with them, so define upfront to avoid UnboundLocalError.
-                    source_dtype = None
-                    target_dtype = None
-                    # Manual-only defaults (no auto-generation)
-                    transformation_type_idx = 0
-                    target_dtype_idx = 0
-                    if variable_to_map not in st.session_state.transformation_instructions:
-                        st.session_state.transformation_instructions[variable_to_map] = 'x'
+                    # Group all transformation UI under a collapsible section to reduce clutter
+                    with st.expander('Transformation', expanded=False):
+                        dtype_options = ['float', 'integer', 'string', 'boolean']
+                        # Ensure defaults exist for all branches; Categorical does not use these,
+                        # but test_transformation() is called with them, so define upfront to avoid UnboundLocalError.
+                        source_dtype = None
+                        target_dtype = None
+                        # Manual-only defaults (no auto-generation)
+                        transformation_type_idx = 0
+                        target_dtype_idx = 0
+                        if variable_to_map not in st.session_state.transformation_instructions:
+                            st.session_state.transformation_instructions[variable_to_map] = 'x'
 
-                    col3, col4 = st.columns(2)
-                    with col3:
-                        transformation_types = ['Direct', 'Categorical']
-                        transformation_type = st.selectbox('Type of transformation applied to this variable:', transformation_types, index=transformation_type_idx)
-                        # UI usability: Microcopy clarifying Direct vs Categorical inputs to reduce confusion.
-                        st.caption("Direct: Use x with +, -, *, / (e.g., x/12, x*2, x-5). Categorical: Provide a Python dict like {'0':'No','1':'Yes'} with string keys.")
-                        # UI usability: Lightweight onboarding expander with examples; dismissible via session state.
-                        if 'hide_transform_tip' not in st.session_state:
-                            st.session_state['hide_transform_tip'] = False
-                        if not st.session_state['hide_transform_tip']:
-                            with st.expander('How do I choose?'):
-                                st.markdown(
-                                    "**When should I use Transform Mode?**\n"
-                                    "Use it when the study values need conversion to match the target codebook (units, dtype, or categories).\n\n"
-                                    "**Simple examples**\n"
-                                    "- Direct: study has `age_months` and target is `Age-Years` → use `x/12`\n"
-                                    "- Categorical: study has `sex` values `M/F` and target expects `Male/Female` → use `{'M':'Male','F':'Female'}`\n\n"
-                                    "**How do I choose a type?**\n"
-                                    "- Direct (numbers): Keep arithmetic simple with x. Examples: `x`, `x*100`, `x/12`, `x-5`.\n"
-                                    "- Categorical (labels): Map raw values to labels. Examples: `{'0':'No','1':'Yes'}`, `{'M':'Male','F':'Female'}`."
-                                )
-                                if st.button('Dismiss tip', key='dismiss_tip'):
-                                    st.session_state['hide_transform_tip'] = True
-                        if transformation_type == 'Direct':
-                            source_dtype = st.selectbox('Source data type:', dtype_options)
-                            target_dtype = st.selectbox('Target data type:', dtype_options, index=target_dtype_idx)
-                            # Provide real-time validation feedback for Direct expressions
-                            st.caption('Allowed operations: +, -, *, /; variable: x (e.g., x/12, x*2, x-5)')
-                            # UI usability: Rename "Quick preset" to "Examples" and add x-5 to make patterns explicit.
-                            preset_options = {
-                                'Choose an example...': None,
-                                'Keep as is (x)': 'x',
-                                'Scale up (x*100)': 'x*100',
-                                'Scale down (x/100)': 'x/100',
-                                'Months → Years (x/12)': 'x/12',
-                                'Years → Months (x*12)': 'x*12',
-                                'Subtract constant (x-5)': 'x-5',
-                            }
-                            preset_choice = st.selectbox('Examples:', list(preset_options.keys()))
-                            if preset_choice and preset_options[preset_choice] is not None and st.button('Apply example', key='apply_preset'):
-                                preset_val = preset_options[preset_choice]
-                                # Update backing store and the widget state BEFORE instantiation
-                                st.session_state.transformation_instructions[variable_to_map] = preset_val
-                                st.session_state['transformation_input'] = preset_val
-                        else:
-                            # Categorical helpers (apply BEFORE creating text_input)
-                            # UI usability: Clarify requirement for string keys in categorical map.
-                            st.caption("Provide a Python dict like {'0':'No','1':'Yes'} with string keys.")
-                            if st.button('Insert template from sample', key='insert_cat_template'):
-                                try:
-                                    # Build a small dict skeleton from top unique values
-                                    uniq = []
-                                    seen = set()
-                                    for v in example_data:
-                                        if v not in seen:
-                                            uniq.append(v)
-                                            seen.add(v)
-                                        if len(uniq) >= 6:
-                                            break
-                                    template = '{' + ', '.join([f"'{str(k)}': ''" for k in uniq]) + '}'
-                                    st.session_state.transformation_instructions[variable_to_map] = template
-                                    st.session_state['transformation_input'] = template
-                                except Exception:
-                                    st.warning('Could not build a template from sample values.')
-                        # Keep the text_input widget in sync with the currently selected variable.
-                        # Note: when a widget has a key, Streamlit uses st.session_state[key] as the source of truth.
-                        if st.session_state.get('transformation_input_var') != variable_to_map:
-                            st.session_state['transformation_input_var'] = variable_to_map
-                            st.session_state['transformation_input'] = st.session_state.transformation_instructions.get(variable_to_map, '')
-                        transformation_instruction_final = st.text_input(
-                            'Transformation instructions for this variable:',
-                            st.session_state.transformation_instructions.get(variable_to_map, ''),
-                            key='transformation_input'
-                        )
-                        st.session_state.transformation_instructions[variable_to_map] = transformation_instruction_final
-                        if transformation_type == 'Direct' and transformation_instruction_final:
-                            try:
-                                is_valid, msg = validate_expression(transformation_instruction_final)
-                                if is_valid:
-                                    st.success(msg)
-                                else:
-                                    st.error(f"Invalid expression: {msg}")
-                                    # UI usability: Provide actionable tips to recover from common validation errors.
-                                    try:
-                                        tip = None
-                                        low = str(msg).lower()
-                                        if 'operator not allowed' in low or 'operator' in low:
-                                            tip = 'Only +, -, *, / are allowed. Example: x/12 or x*100.'
-                                        elif 'name not allowed' in low:
-                                            tip = "Use the variable x only (e.g., x, x/12, x-5)."
-                                        elif 'unsupported' in low or 'call' in low:
-                                            tip = 'Avoid functions, attributes, or indexing. Keep it as simple arithmetic with x.'
-                                        elif 'missing variable' in low:
-                                            tip = "Expression must reference x. Start with 'x' and add arithmetic (e.g., x*2)."
-                                        if tip:
-                                            st.info(f"Tip: {tip}")
-                                    except Exception:
-                                        pass
-                            except Exception as e:
-                                st.error(f"Validation error: {e}")
-                        elif transformation_type == 'Categorical' and transformation_instruction_final:
-                            # Inline validation with actionable feedback
-                            txt = transformation_instruction_final.strip()
-                            if not (txt.startswith('{') and txt.endswith('}')):
-                                st.error("Expected a dict literal like {'0':'No','1':'Yes'} (include braces and quotes around keys).")
+                        col3, col4 = st.columns(2)
+                        with col3:
+                            transformation_types = ['Direct', 'Categorical']
+                            transformation_type = st.selectbox('Type of transformation applied to this variable:', transformation_types, index=transformation_type_idx)
+                            # UI usability: Microcopy clarifying Direct vs Categorical inputs to reduce confusion.
+                            st.caption("Direct: Use x with +, -, *, / (e.g., x/12, x*2, x-5). Categorical: Provide a Python dict like {'0':'No','1':'Yes'} with string keys.")
+                            # UI usability: Lightweight onboarding expander with examples; dismissible via session state.
+                            if 'hide_transform_tip' not in st.session_state:
+                                st.session_state['hide_transform_tip'] = False
+                            if not st.session_state['hide_transform_tip']:
+                                with st.expander('How do I choose?'):
+                                    st.markdown(
+                                        "**When should I use Transform Mode?**\n"
+                                        "Use it when the study values need conversion to match the target codebook (units, dtype, or categories).\n\n"
+                                        "**Simple examples**\n"
+                                        "- Direct: study has `age_months` and target is `Age-Years` → use `x/12`\n"
+                                        "- Categorical: study has `sex` values `M/F` and target expects `Male/Female` → use `{'M':'Male','F':'Female'}`\n\n"
+                                        "**How do I choose a type?**\n"
+                                        "- Direct (numbers): Keep arithmetic simple with x. Examples: `x`, `x*100`, `x/12`, `x-5`.\n"
+                                        "- Categorical (labels): Map raw values to labels. Examples: `{'0':'No','1':'Yes'}`, `{'M':'Male','F':'Female'}`."
+                                    )
+                                    if st.button('Dismiss tip', key='dismiss_tip'):
+                                        st.session_state['hide_transform_tip'] = True
+                            if transformation_type == 'Direct':
+                                source_dtype = st.selectbox('Source data type:', dtype_options)
+                                target_dtype = st.selectbox('Target data type:', dtype_options, index=target_dtype_idx)
+                                # Provide real-time validation feedback for Direct expressions
+                                st.caption('Allowed operations: +, -, *, /; variable: x (e.g., x/12, x*2, x-5)')
+                                # UI usability: Rename "Quick preset" to "Examples" and add x-5 to make patterns explicit.
+                                preset_options = {
+                                    'Choose an example...': None,
+                                    'Keep as is (x)': 'x',
+                                    'Scale up (x*100)': 'x*100',
+                                    'Scale down (x/100)': 'x/100',
+                                    'Months → Years (x/12)': 'x/12',
+                                    'Years → Months (x*12)': 'x*12',
+                                    'Subtract constant (x-5)': 'x-5',
+                                }
+                                preset_choice = st.selectbox('Examples:', list(preset_options.keys()))
+                                if preset_choice and preset_options[preset_choice] is not None and st.button('Apply example', key='apply_preset'):
+                                    preset_val = preset_options[preset_choice]
+                                    # Update backing store and the widget state BEFORE instantiation
+                                    st.session_state.transformation_instructions[variable_to_map] = preset_val
+                                    st.session_state['transformation_input'] = preset_val
                             else:
+                                # Categorical helpers (apply BEFORE creating text_input)
+                                # UI usability: Clarify requirement for string keys in categorical map.
+                                st.caption("Provide a Python dict like {'0':'No','1':'Yes'} with string keys.")
+                                if st.button('Insert template from sample', key='insert_cat_template'):
+                                    try:
+                                        # Build a small dict skeleton from top unique values
+                                        uniq = []
+                                        seen = set()
+                                        for v in example_data:
+                                            if v not in seen:
+                                                uniq.append(v)
+                                                seen.add(v)
+                                            if len(uniq) >= 6:
+                                                break
+                                        template = '{' + ', '.join([f"'{str(k)}': ''" for k in uniq]) + '}'
+                                        st.session_state.transformation_instructions[variable_to_map] = template
+                                        st.session_state['transformation_input'] = template
+                                    except Exception:
+                                        st.warning('Could not build a template from sample values.')
+                            # Keep the text_input widget in sync with the currently selected variable.
+                            # Note: when a widget has a key, Streamlit uses st.session_state[key] as the source of truth.
+                            if st.session_state.get('transformation_input_var') != variable_to_map:
+                                st.session_state['transformation_input_var'] = variable_to_map
+                                st.session_state['transformation_input'] = st.session_state.transformation_instructions.get(variable_to_map, '')
+                            transformation_instruction_final = st.text_input(
+                                'Transformation instructions for this variable:',
+                                st.session_state.transformation_instructions.get(variable_to_map, ''),
+                                key='transformation_input'
+                            )
+                            st.session_state.transformation_instructions[variable_to_map] = transformation_instruction_final
+                            if transformation_type == 'Direct' and transformation_instruction_final:
                                 try:
-                                    parsed = ast.literal_eval(txt)
-                                    if isinstance(parsed, dict):
-                                        st.success('Mapping format looks good.')
+                                    is_valid, msg = validate_expression(transformation_instruction_final)
+                                    if is_valid:
+                                        st.success(msg)
                                     else:
-                                        st.error("Mapping must be a dict (e.g., {'0':'No','1':'Yes'}).")
+                                        st.error(f"Invalid expression: {msg}")
+                                        # UI usability: Provide actionable tips to recover from common validation errors.
+                                        try:
+                                            tip = None
+                                            low = str(msg).lower()
+                                            if 'operator not allowed' in low or 'operator' in low:
+                                                tip = 'Only +, -, *, / are allowed. Example: x/12 or x*100.'
+                                            elif 'name not allowed' in low:
+                                                tip = "Use the variable x only (e.g., x, x/12, x-5)."
+                                            elif 'unsupported' in low or 'call' in low:
+                                                tip = 'Avoid functions, attributes, or indexing. Keep it as simple arithmetic with x.'
+                                            elif 'missing variable' in low:
+                                                tip = "Expression must reference x. Start with 'x' and add arithmetic (e.g., x*2)."
+                                            if tip:
+                                                st.info(f"Tip: {tip}")
+                                        except Exception:
+                                            pass
                                 except Exception as e:
-                                    st.error(f"Invalid mapping: {e}")
-                                    # UI usability: Short guidance to fix common dict literal mistakes.
-                                    st.info("Tip: Ensure braces {}, quotes around keys and values, colons between key and value, and commas between pairs. Example: {'0':'No','1':'Yes'}")
-                        else:
-                            source_dtype = None
-                            target_dtype = None
-                    
-                    with col4:
-                        test_transformation(example_data, transformation_type, transformation_instruction_final, source_dtype, target_dtype)
-                        if st.session_state.get('transformation_input') != st.session_state.get('last_transformation_input'):
-                            st.session_state['last_transformation_input'] = st.session_state.get('transformation_input')
+                                    st.error(f"Validation error: {e}")
+                            elif transformation_type == 'Categorical' and transformation_instruction_final:
+                                # Inline validation with actionable feedback
+                                txt = transformation_instruction_final.strip()
+                                if not (txt.startswith('{') and txt.endswith('}')):
+                                    st.error("Expected a dict literal like {'0':'No','1':'Yes'} (include braces and quotes around keys).")
+                                else:
+                                    try:
+                                        parsed = ast.literal_eval(txt)
+                                        if isinstance(parsed, dict):
+                                            st.success('Mapping format looks good.')
+                                        else:
+                                            st.error("Mapping must be a dict (e.g., {'0':'No','1':'Yes'}).")
+                                    except Exception as e:
+                                        st.error(f"Invalid mapping: {e}")
+                                        # UI usability: Short guidance to fix common dict literal mistakes.
+                                        st.info("Tip: Ensure braces {}, quotes around keys and values, colons between key and value, and commas between pairs. Example: {'0':'No','1':'Yes'}")
+                            else:
+                                source_dtype = None
+                                target_dtype = None
+
+                            with col4:
+                                test_transformation(example_data, transformation_type, transformation_instruction_final, source_dtype, target_dtype)
+                                if st.session_state.get('transformation_input') != st.session_state.get('last_transformation_input'):
+                                    st.session_state['last_transformation_input'] = st.session_state.get('transformation_input')
+                    # Always retrieve the current instruction after (or without) opening the expander
                     transformation_instruction = st.session_state.transformation_instructions.get(variable_to_map, None)
                 else:
                     transformation_instruction = None
