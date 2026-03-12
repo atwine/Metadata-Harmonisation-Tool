@@ -2,7 +2,7 @@
 
 [![fair-software.eu](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B%20%20%E2%97%8B%20%20%E2%97%8B-orange)](https://fair-software.eu)
 
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.18978530-blue)](https://doi.org/10.5281/zenodo.18978530)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18978530.svg)](https://doi.org/10.5281/zenodo.18978530)
 
 This is a [Streamlit](https://streamlit.io) application that facilitates the matching of variable names in a dataset to that of a target codebook, dramatically speeding up the first and often most tedious step in developing a common data model.
 
