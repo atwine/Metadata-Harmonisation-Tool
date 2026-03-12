@@ -3,6 +3,29 @@ All notable changes to this project will be documented in this file.
 
 Format: Keep a Changelog. Versioning: Semantic Versioning.
 
+## [0.4.2] - 2026-03-12
+### Added
+- Map Studies: Group all transformation controls under a collapsible "Transformation" expander to reduce visual clutter.
+  - File: `app/components/map_study.py`
+- Upload Codebook: persistent "Last codebook upload" banner (filename, variable count, timestamp) saved to `input/target_variables.meta.json` so status survives restarts.
+  - File: `app/components/upload_codebook.py`
+
+### Changed
+- Map Studies: default both "Relational Mode" and "Transform Mode" to OFF for a cleaner first-run experience.
+  - File: `app/pages/4_Map_Studies.py`
+
+### Fixed
+- Upload Codebook: submit button no longer remains disabled after selecting a file inside a form; server-side guard prevents empty submits.
+  - File: `app/components/upload_codebook.py`
+- Upload Codebook: button label updated to "Upload Codebook" for clarity.
+  - File: `app/components/upload_codebook.py`
+
+### Documentation
+- Restructured README into a unified "Quick Start" with a clear choice between Option A (Docker) and Option B (No Docker).
+- Moved the non-Docker (Conda/Micromamba) setup out of Development into Quick Start and added a `conda init` note (PowerShell/cmd/bash).
+- Centralized guidance to set `OLLAMA_BASE_URL` in `.env` (Streamlit reruns can reset sidebar fields) with recommended values; added model pull steps for container and host; included a short "Verify your setup" step.
+  - File: `README.md`
+
 ## [0.4.1] - 2025-12-12
 ### Fixed
 - Removed remaining unsafe runtime `eval()` usage in Map Studies sorting logic.
@@ -79,24 +102,7 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
 - Path behavior: prefers `app/input` and `app/results` when running the app; falls back to repo-root `input` and `results` to support tests/CI.
 
 ## [Unreleased]
-- UI improvements:
-  - Map Studies: transformation controls are now grouped under a collapsible "Transformation" expander to reduce clutter. Defaults remain manual-only.
-    - Files: `app/components/map_study.py`
-  - Sidebar: "Relational Mode" and "Transform Mode" now default to OFF to keep the mapping UI simple by default.
-    - File: `app/pages/4_Map_Studies.py`
-
-- Upload Codebook UX:
-  - Fixed submit button state inside the form so it no longer stays disabled after choosing a file; server-side guard remains to prevent empty submits. Button label changed to "Upload Codebook".
-    - File: `app/components/upload_codebook.py`
-  - Added immediate confirmation after upload (success message with variable count and a toast).
-  - Added a persistent "Last codebook upload" banner (filename, #variables, timestamp) stored in `input/target_variables.meta.json` so the status survives restarts.
-    - File: `app/components/upload_codebook.py`
-
-- Documentation (Quick Start):
-  - Promoted "Getting Started" to a unified "Quick Start" with a clear choice between [Option A: Docker] and [Option B: No Docker].
-  - Moved the non-Docker (Conda/Micromamba) setup out of Development into Quick Start, and added a `conda init` callout (PowerShell/cmd/bash).
-  - Centralized guidance to set `OLLAMA_BASE_URL` in `.env` (to avoid Streamlit rerun resets) with recommended values, and included model pull steps for both container and host setups. Added a short "Verify your setup" step (UI Connection Test or `validate_config.py`).
-    - File: `README.md`
+ 
 
 - Docker/Compose reliability fixes and Ollama bootstrap:
   - Added repo-root `.dockerignore` so build context exclusions apply correctly (avoid baking in `venv/` and `.env`), while keeping runtime-required `about.md`.
