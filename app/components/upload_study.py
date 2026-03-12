@@ -3,9 +3,17 @@ import pandas as pd
 import fsspec
 import clevercsv
 from io import StringIO
+import os  # Minimal fix: align path resolution with other components for local runs
 
-results_path = "results"
-input_path = "input"
+# Resolve paths to work from both app/ (streamlit run) and repo root.
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_CWD_BASE = os.path.abspath(os.getcwd())
+_LOCAL_INPUT = os.path.join(_CWD_BASE, "input")
+_LOCAL_RESULTS = os.path.join(_CWD_BASE, "results")
+_REPO_INPUT = os.path.join(BASE_DIR, "input")
+_REPO_RESULTS = os.path.join(BASE_DIR, "results")
+input_path = _LOCAL_INPUT if os.path.exists(_LOCAL_INPUT) else _REPO_INPUT
+results_path = _LOCAL_RESULTS if os.path.exists(_LOCAL_RESULTS) else _REPO_RESULTS
 preprocess_path = "preprocess"
 
 fs = fsspec.filesystem("")
@@ -65,7 +73,8 @@ def add_study_page():
     """
     Renders the Streamlit page for adding a new study, including form inputs and submission handling.
     """
-    if not fs.exists(f"input/target_variables.csv"):
+    # Use resolved input_path so this check matches where the uploader saved the codebook.
+    if not fs.exists(f"{input_path}/target_variables.csv"):
         st.write(":red[Please upload a target codebook before submitting a study to map]")
         disable = True
     else:
