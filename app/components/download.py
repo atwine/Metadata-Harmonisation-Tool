@@ -82,6 +82,14 @@ def download_page():
     with col1:
         st.dataframe(df)
     with col2:
+        # UX: If no example data exists for the selected study, advise metadata-only users to use CSV export.
+        try:
+            has_example = fs.exists(f"{input_path}/{name}/example_data.csv")
+        except Exception:
+            has_example = False
+        if not has_example:
+            st.info("Metadata-only mapping detected (no example_data.csv). Please download 'Mapping only (CSV)'. The 'Full data package (ZIP)' requires example data.")
+
         export_mode = st.selectbox(
             "Export format",
             options=["Mapping only (CSV)", "Full data package (ZIP)"]

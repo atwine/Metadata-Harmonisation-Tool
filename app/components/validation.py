@@ -97,9 +97,12 @@ def validate_study_files(study: str) -> Dict[str, List[str]]:
     """
     out: Dict[str, List[str]] = {"errors": [], "warnings": []}
 
+    # Ensure ex_df is defined even when example data is absent; example data is optional.
+    ex_df = None
     ex_path = f"input/{study}/example_data.csv"
     if not fs.exists(ex_path):
-        out["errors"].append(f"Missing: {ex_path}")
+        # Treat missing example_data.csv as a warning so metadata-only workflows are supported.
+        out["warnings"].append("No example_data.csv provided (optional).")
     else:
         ex_size = _file_size_info(ex_path)
         if ex_size and ex_size > 100 * 1024 * 1024:
@@ -128,6 +131,7 @@ def validate_study_files(study: str) -> Dict[str, List[str]]:
                 out["warnings"].append(f"Recommendations file missing column: {n}")
 
         # Column intersection with example_data
+        # Guard on both rec_df and ex_df to avoid UnboundLocalError when example data is absent.
         if ex_df is not None:
             inter = sorted(set(rec_df.get('variable_name', [])).intersection(set(ex_df.columns)))
             if len(inter) == 0:
