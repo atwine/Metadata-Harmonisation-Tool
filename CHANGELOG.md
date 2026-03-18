@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 Format: Keep a Changelog. Versioning: Semantic Versioning.
 
+## [0.4.3] - 2026-03-18
+### Fixed
+- Upload Studies: incorrect guard against missing codebook in some local (conda) runs due to path mismatch. Aligned path resolution with other components.
+  - File: `app/components/upload_study.py`
+- Validation: UnboundLocalError when no example data is uploaded; treat `example_data.csv` as optional, initialize `ex_df`, and guard column overlap checks.
+  - File: `app/components/validation.py`
+
+### Changed
+- Download Results: show a guidance note for metadata-only workflows (no `example_data.csv`) advising users to download “Mapping only (CSV)” instead of the ZIP package.
+  - File: `app/components/download.py`
+
 ## [0.4.2] - 2026-03-12
 ### Added
 - Map Studies: Group all transformation controls under a collapsible "Transformation" expander to reduce visual clutter.
