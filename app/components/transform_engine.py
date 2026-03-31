@@ -60,6 +60,9 @@ def _apply_categorical_series(series: pd.Series, instr: str) -> Tuple[pd.Series,
     success = 0
     errors = 0
     try:
+        # SECURITY: Validate string length before deserialization to prevent DoS
+        if len(instr) > 10000:
+            raise ValueError("Categorical mapping too large")
         mapping_obj = ast.literal_eval(instr)
         if not isinstance(mapping_obj, dict):
             raise ValueError("Categorical instruction is not a dict literal")
@@ -101,9 +104,10 @@ def apply_transformations(df: pd.DataFrame, mapping_df: pd.DataFrame) -> Tuple[p
     metrics: Dict[str, Dict[str, int]] = {}
     warnings: List[str] = []
 
-    for _, row in mapping_df.iterrows():
-        if str(row.get('marked', '')).strip() != 'Successfully mapped':
-            continue
+    # PERFORMANCE: Filter once before iteration to avoid checking every row
+    mapped_rows = mapping_df[mapping_df['marked'].astype(str).str.strip() == 'Successfully mapped']
+    
+    for _, row in mapped_rows.iterrows():
 
         study_var = row.get('study_var')
         codebook_var = row.get('codebook_var')

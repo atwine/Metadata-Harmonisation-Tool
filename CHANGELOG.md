@@ -3,6 +3,67 @@ All notable changes to this project will be documented in this file.
 
 Format: Keep a Changelog. Versioning: Semantic Versioning.
 
+## [0.4.4] - 2026-03-31
+
+### Security
+- **CRITICAL**: Fixed SQL injection vulnerability in DuckDB queries.
+  - Added input sanitization for user-controlled variables in WHERE clauses.
+  - File: `app/components/map_study.py`
+
+- **CRITICAL**: Fixed arbitrary file deletion vulnerability.
+  - Added path validation with whitelist of allowed directories (`input/`, `results/`, `preprocess/`, `logs/`).
+  - Prevents deletion outside project directory via path traversal.
+  - File: `app/components/util.py`
+
+- **CRITICAL**: Fixed .env file injection vulnerability.
+  - Added regex validation for environment variable keys (uppercase alphanumeric + underscore).
+  - Added newline validation for values to prevent injection attacks.
+  - File: `app/components/util.py`
+
+- **HIGH**: Added size limits to `ast.literal_eval()` calls to prevent DoS attacks.
+  - 10,000 character limit before deserialization of user-provided data.
+  - Files: `app/components/transform_engine.py`, `app/components/transformation_utils.py`, `app/components/util.py`, `app/components/map_study.py`
+
+- **HIGH**: Added input validation to all text input fields.
+  - Study title/description: 200/1000 character limits.
+  - Operator name: 100 character limit.
+  - Notes and transformation instructions: 500 character limit.
+  - Initialization prompt: 1000 character limit.
+  - Files: `app/components/upload_study.py`, `app/components/map_study.py`, `app/components/initialise_mapping_app.py`
+
+- **HIGH**: Added session state size monitoring to prevent memory exhaustion.
+  - 50MB limit with automatic cleanup of old draft data.
+  - Runs every 5 minutes.
+  - File: `app/app.py`
+
+- **MEDIUM**: Added path validation in download operations.
+  - Sanitizes study names to prevent path traversal.
+  - File: `app/components/download.py`
+
+- **MEDIUM**: Added ZIP file size limits to prevent memory exhaustion.
+  - 100MB maximum for export packages.
+  - File: `app/components/download.py`
+
+- **MEDIUM**: Sanitized error messages to prevent information disclosure.
+  - Full errors logged server-side, generic messages shown to users.
+  - File: `app/components/download.py`
+
+### Changed
+- Replaced unsafe in-place DataFrame operations with explicit assignments.
+  - File: `app/components/download.py`
+
+### Performance
+- Optimized transformation loop by filtering DataFrame once before iteration (N+1 pattern fix).
+  - File: `app/components/transform_engine.py`
+
+- Removed redundant `list()` call in example data formatting.
+  - File: `app/components/util.py`
+
+### Notes
+- Authentication: Consider adding `streamlit-authenticator` for production deployments.
+- Rate limiting: File upload rate limiting not yet implemented (requires decorator).
+- File locking: Windows cross-platform file locking requires `portalocker` library.
+
 ## [0.4.3] - 2026-03-18
 ### Fixed
 - Upload Studies: incorrect guard against missing codebook in some local (conda) runs due to path mismatch. Aligned path resolution with other components.
@@ -113,7 +174,6 @@ Format: Keep a Changelog. Versioning: Semantic Versioning.
 - Path behavior: prefers `app/input` and `app/results` when running the app; falls back to repo-root `input` and `results` to support tests/CI.
 
 ## [Unreleased]
- 
 
 - Docker/Compose reliability fixes and Ollama bootstrap:
   - Added repo-root `.dockerignore` so build context exclusions apply correctly (avoid baking in `venv/` and `.env`), while keeping runtime-required `about.md`.

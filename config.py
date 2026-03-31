@@ -11,6 +11,7 @@ import ollama
 import openai
 from dotenv import load_dotenv
 import logging
+import re
 
 # Load environment variables
 load_dotenv()
@@ -105,6 +106,9 @@ class ModelConfig:
             elif self.provider == AIProvider.OPENAI:
                 if not self.api_key:
                     raise ValueError("OpenAI API key is required")
+                # SECURITY: Validate OpenAI API key format (sk-...)
+                if not re.match(r'^sk-[A-Za-z0-9]{20,}$', self.api_key):
+                    raise ValueError("Invalid OpenAI API key format")
                 self.client = openai.OpenAI(
                     api_key=self.api_key,
                     base_url=self.base_url
@@ -113,6 +117,9 @@ class ModelConfig:
             elif self.provider == AIProvider.ANTHROPIC:
                 if not self.api_key:
                     raise ValueError("Anthropic API key is required")
+                # SECURITY: Validate Anthropic API key format (sk-ant-...)
+                if not re.match(r'^sk-ant-[A-Za-z0-9_-]{20,}$', self.api_key):
+                    raise ValueError("Invalid Anthropic API key format")
                 import anthropic
                 self.client = anthropic.Anthropic(
                     api_key=self.api_key,
@@ -122,6 +129,9 @@ class ModelConfig:
             elif self.provider == AIProvider.AZURE_OPENAI:
                 if not self.api_key or not self.base_url:
                     raise ValueError("Azure OpenAI API key and endpoint are required")
+                # SECURITY: Validate Azure API key format (32 hex chars)
+                if not re.match(r'^[a-fA-F0-9]{32}$', self.api_key):
+                    raise ValueError("Invalid Azure OpenAI API key format")
                 self.client = openai.AzureOpenAI(
                     api_key=self.api_key,
                     azure_endpoint=self.base_url,
@@ -131,7 +141,9 @@ class ModelConfig:
             return self.client
             
         except Exception as e:
-            st.error(f"Failed to initialize {self.provider.value} client: {str(e)}")
+            # SECURITY: Log full error but show sanitized message to user
+            logger.error(f"Failed to initialize {self.provider.value} client: {str(e)}")
+            st.error(f"Failed to initialize {self.provider.value} client. Check your configuration and try again.")
             return None
             
     def validate_models(self) -> tuple[bool, str]:
@@ -160,7 +172,9 @@ class ModelConfig:
                         
                     return True, "Models validated successfully"
                 except Exception as e:
-                    return False, f"Failed to connect to Ollama: {str(e)}"
+                    # SECURITY: Log full error but return sanitized message
+                    logger.error(f"Failed to connect to Ollama: {str(e)}")
+                    return False, "Failed to connect to Ollama. Check your configuration."
                 
             elif self.provider in [AIProvider.OPENAI, AIProvider.AZURE_OPENAI]:
                 # Test with a simple API call
@@ -172,7 +186,9 @@ class ModelConfig:
                     )
                     return True, "OpenAI models validated successfully"
                 except Exception as e:
-                    return False, f"OpenAI model validation failed: {str(e)}"
+                    # SECURITY: Log full error but return sanitized message
+                    logger.error(f"OpenAI model validation failed: {str(e)}")
+                    return False, "OpenAI model validation failed. Check your API key and model name."
                 
             elif self.provider == AIProvider.ANTHROPIC:
                 # Test with a simple API call
@@ -185,11 +201,14 @@ class ModelConfig:
                     )
                     return True, "Anthropic models validated successfully"
                 except Exception as e:
-                    return False, f"Anthropic model validation failed: {str(e)}"
+                    # SECURITY: Log full error but return sanitized message
+                    logger.error(f"Anthropic model validation failed: {str(e)}")
+                    return False, "Anthropic model validation failed. Check your API key and model name."
                 
         except Exception as e:
+            # SECURITY: Log full error but return sanitized message
             logger.error(f"Model validation error: {str(e)}")
-            return False, f"Model validation failed: {str(e)}"
+            return False, "Model validation failed. Check your configuration."
             
         return False, "Unknown provider"
         

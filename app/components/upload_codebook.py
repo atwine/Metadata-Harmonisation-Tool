@@ -31,8 +31,27 @@ def streamlit_csv_reader(file_up):
     
     Returns:
         DataFrame: A pandas DataFrame containing the CSV data.
+        
+    Raises:
+        ValueError: If file validation fails
     """
-    stringio = StringIO(file_up.getvalue().decode("utf-8"))
+    # SECURITY: Validate file extension
+    if not file_up.name.lower().endswith('.csv'):
+        raise ValueError("File must be a CSV file")
+    
+    # SECURITY: Validate file size (10MB limit)
+    max_size = 10 * 1024 * 1024
+    content = file_up.getvalue()
+    if len(content) > max_size:
+        raise ValueError(f"File too large. Maximum size: {max_size/1024/1024:.0f}MB")
+    
+    # SECURITY: Validate content is valid UTF-8 text
+    try:
+        text_content = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("File must contain valid UTF-8 text")
+    
+    stringio = StringIO(text_content)
     delim = clevercsv.Sniffer().sniff(stringio.read()).delimiter # type: ignore
     return pd.read_csv(file_up, sep = delim)
 

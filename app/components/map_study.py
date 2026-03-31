@@ -1,12 +1,20 @@
 import streamlit as st
 import pandas as pd
 import fsspec
-import duckdb
-import time
-import numpy as np
+import os
 import ast
 import json
-import hashlib
+from datetime import datetime
+from .util import get_ai_provider
+import time
+import duckdb
+
+# SECURITY: Conditional import - fcntl only available on Unix/Linux
+try:
+    import fcntl
+    HAS_FCNTL = True
+except ImportError:
+    HAS_FCNTL = False
 from datetime import datetime, timezone
 from .transformation_utils import generic_direct_conversion, generic_catagorical_conversion, validate_expression
 from .util import split_var_confidence, format_example_data, add_to_session_state, pre_process_recomendations, get_ai_provider
@@ -26,6 +34,11 @@ mapping_options = ['To do',
 if 'transformation_instructions' not in st.session_state:
     st.session_state.transformation_instructions = {}
 
+# SECURITY: Sanitize SQL string values to prevent injection
+def _sanitize_sql_string(value):
+    """Escape single quotes in SQL string values to prevent injection attacks."""
+    return str(value).replace("'", "''")
+
 # SECURITY: safe parsing helper for list-like values stored in CSVs (used for sorting).
 # Kept at module scope so it can be covered by unit tests.
 def _safe_first_distance(v):
@@ -35,6 +48,9 @@ def _safe_first_distance(v):
         if isinstance(v, (list, tuple)):
             return v[0] if len(v) > 0 else float('inf')
         if isinstance(v, str):
+            # SECURITY: Validate string length before deserialization to prevent DoS
+            if len(v) > 10000:
+                return float('inf')
             parsed = ast.literal_eval(v)
             if isinstance(parsed, (list, tuple)):
                 return parsed[0] if len(parsed) > 0 else float('inf')
@@ -87,17 +103,64 @@ def write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, 
         index=[0])
     st.write('The following has been saved:')
     st.write(df_new)
-    df_old = pd.read_csv(results_file)
-    # AUDIT: capture the previous saved values for this study_var before overwrite.
-    # This enables traceability for shared/compliance workflows.
-    try:
-        _prev_df = df_old.loc[df_old['study_var'] == variable_to_map]
-        _prev_row = _prev_df.iloc[-1].to_dict() if len(_prev_df) else None
-    except Exception:
-        _prev_row = None
-    df_updated = pd.concat([df_old, df_new], ignore_index=True)
-    df_updated = df_updated.drop_duplicates(subset=['study_var'], keep='last')
-    df_updated.to_csv(results_file, index=False)
+    
+    # SECURITY: File locking to prevent race conditions during concurrent access
+    max_retries = 5
+    retry_delay = 0.1
+    
+    for attempt in range(max_retries):
+        try:
+            with open(results_file, 'r+') as f:
+                # Acquire exclusive lock (Unix/Linux only)
+                if HAS_FCNTL:
+                    try:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except (AttributeError, OSError):
+                        # Lock unavailable - use simple retry
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay * (attempt + 1))
+                            continue
+                        # Last attempt - proceed without lock
+                        pass
+                
+                # Read current data
+                f.seek(0)
+                df_old = pd.read_csv(f)
+                
+                # AUDIT: capture the previous saved values for this study_var before overwrite.
+                try:
+                    _prev_df = df_old.loc[df_old['study_var'] == variable_to_map]
+                    _prev_row = _prev_df.iloc[-1].to_dict() if len(_prev_df) else None
+                except Exception:
+                    _prev_row = None
+                
+                # Update and write
+                df_updated = pd.concat([df_old, df_new], ignore_index=True)
+                df_updated = df_updated.drop_duplicates(subset=['study_var'], keep='last')
+                
+                # Truncate and write new data
+                f.seek(0)
+                f.truncate()
+                df_updated.to_csv(f, index=False)
+                
+                # Release lock automatically on context exit
+                break
+        except FileNotFoundError:
+            # File doesn't exist yet - create it
+            df_new.to_csv(results_file, index=False)
+            _prev_row = None
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay * (attempt + 1))
+                continue
+            # Last attempt failed - fall back to simple write
+            df_old = pd.read_csv(results_file)
+            _prev_row = None
+            df_updated = pd.concat([df_old, df_new], ignore_index=True)
+            df_updated = df_updated.drop_duplicates(subset=['study_var'], keep='last')
+            df_updated.to_csv(results_file, index=False)
+            break
 
     # AUDIT: append-only JSONL audit log under logs/.
     # Minimal format: timestamp + operator + provider info + previous/new record.
@@ -256,7 +319,7 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
             # Stored in session state and written into each audit record.
             if 'operator_name' not in st.session_state:
                 st.session_state['operator_name'] = ''
-            st.text_input('Operator name (for audit trail):', key='operator_name')
+            st.text_input('Operator name (for audit trail):', key='operator_name', max_chars=100)
 
             # AUDIT: optional viewer for recent writes.
             try:
@@ -314,12 +377,18 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
             except Exception:
                 pass
 
-            # query results file
-            variables = duckdb.sql(f"""SELECT study_var
-                                FROM read_csv_auto('{results_file}', delim = ',', header = True)
-                                WHERE marked = '{variables_status}'""")
-            # coerce db output to list
-            variables = list(variables.fetchdf()['study_var'].values)
+            # Query results file - fallback to pandas if DuckDB fails
+            try:
+                # SECURITY: Sanitize SQL inputs to prevent injection
+                safe_status = _sanitize_sql_string(variables_status)
+                variables = duckdb.sql(f"""SELECT study_var
+                                    FROM read_csv_auto('{results_file}', delim = ',', header = True)
+                                    WHERE marked = '{safe_status}'""")
+                variables = list(variables.fetchdf()['study_var'].values)
+            except Exception:
+                # Fallback to pandas if DuckDB CSV parsing fails
+                _df = pd.read_csv(results_file)
+                variables = list(_df[_df['marked'] == variables_status]['study_var'].values)
 
             # sort in original order if requested
             if original_order:
@@ -334,9 +403,16 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 # previous info
                 if not variables_status == 'To do':
                     st.write('The following information has previously been recorded:')
-                    _prev_df = duckdb.sql(f"""SELECT *
-                                        FROM read_csv_auto('{results_file}', delim = ',', header = True)
-                                        WHERE study_var = '{variable_to_map}'""").fetchdf()
+                    try:
+                        # SECURITY: Sanitize SQL inputs to prevent injection
+                        safe_var = _sanitize_sql_string(variable_to_map)
+                        _prev_df = duckdb.sql(f"""SELECT *
+                                            FROM read_csv_auto('{results_file}', delim = ',', header = True)
+                                            WHERE study_var = '{safe_var}'""").fetchdf()
+                    except Exception:
+                        # Fallback to pandas if DuckDB CSV parsing fails
+                        _df = pd.read_csv(results_file)
+                        _prev_df = _df[_df['study_var'] == variable_to_map]
                     # Compact, read-only details for review
                     _display_cols = ['study_var','codebook_var','confidence','marked','patient_id_var','date_var','transformation_type','transformation_instructions','notes']
                     _display_cols = [c for c in _display_cols if c in _prev_df.columns]
@@ -468,7 +544,7 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                     st.session_state['notes_input_var'] = variable_to_map
                     st.session_state.setdefault('notes_draft', {})
                     st.session_state['notes_input'] = st.session_state['notes_draft'].get(variable_to_map, '')
-                notes = st.text_input('Notes about this variable:', key='notes_input')
+                notes = st.text_input('Notes about this variable:', key='notes_input', max_chars=500)
                 st.session_state.setdefault('notes_draft', {})[variable_to_map] = notes
                 if enable_transformations and example_avail:
                     # Initialize the transformation instructions dictionary if it doesn't exist
@@ -560,7 +636,8 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                             transformation_instruction_final = st.text_input(
                                 'Transformation instructions for this variable:',
                                 st.session_state.transformation_instructions.get(variable_to_map, ''),
-                                key='transformation_input'
+                                key='transformation_input',
+                                max_chars=500
                             )
                             st.session_state.transformation_instructions[variable_to_map] = transformation_instruction_final
                             if transformation_type == 'Direct' and transformation_instruction_final:
@@ -590,22 +667,6 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                                     st.error(f"Validation error: {e}")
                             elif transformation_type == 'Categorical' and transformation_instruction_final:
                                 # Inline validation with actionable feedback
-                                txt = transformation_instruction_final.strip()
-                                if not (txt.startswith('{') and txt.endswith('}')):
-                                    st.error("Expected a dict literal like {'0':'No','1':'Yes'} (include braces and quotes around keys).")
-                                else:
-                                    try:
-                                        parsed = ast.literal_eval(txt)
-                                        if isinstance(parsed, dict):
-                                            st.success('Mapping format looks good.')
-                                        else:
-                                            st.error("Mapping must be a dict (e.g., {'0':'No','1':'Yes'}).")
-                                    except Exception as e:
-                                        st.error(f"Invalid mapping: {e}")
-                                        # UI usability: Short guidance to fix common dict literal mistakes.
-                                        st.info("Tip: Ensure braces {}, quotes around keys and values, colons between key and value, and commas between pairs. Example: {'0':'No','1':'Yes'}")
-                            else:
-                                source_dtype = None
                                 target_dtype = None
 
                             with col4:

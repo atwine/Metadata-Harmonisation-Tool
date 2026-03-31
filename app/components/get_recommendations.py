@@ -174,6 +174,12 @@ def generate_recommendations(study):
     # Phase 1 perf: parse embeddings once, vectorize cosine distance
     def _to_vec(x):
         if isinstance(x, str):
+            # SECURITY: Validate string length before deserialization to prevent DoS
+            if len(x) > 100000:  # ~100KB limit for embedding strings
+                return None
+            # SECURITY: Basic validation - embeddings should look like lists
+            if not (x.strip().startswith('[') and x.strip().endswith(']')):
+                return None
             try:
                 x = ast.literal_eval(x)
             except Exception:

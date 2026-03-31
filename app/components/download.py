@@ -3,6 +3,10 @@ import pandas as pd
 import fsspec
 import io
 import zipfile
+import re
+import logging
+
+logger = logging.getLogger(__name__)
 from .transform_engine import (
     load_study_data,
     load_mapping,
@@ -48,7 +52,14 @@ def download_page():
         return
  
     name = st.selectbox('Select study to download:', avail_studies)
-    results_file = f"{results_path}/{name}.csv"
+    
+    # SECURITY: Validate study name to prevent path traversal
+    safe_name = re.sub(r'[^\w\s-]', '', name).strip()
+    if safe_name != name or not safe_name:
+        st.error("Invalid study name")
+        return
+    
+    results_file = f"{results_path}/{safe_name}.csv"
  
     if not fs.exists(results_file):
         st.warning(f"No results found for '{name}' yet. Map at least one variable in Map Studies to create results.")
@@ -69,7 +80,7 @@ def download_page():
         return
  
     df = pd.read_csv(results_file)
-    df.replace('0%', None, inplace=True)
+    df = df.replace('0%', None)  # Explicit assignment instead of inplace
     # only keep the core columns and drop the rest where all values are NaN
     df1 = df[['study_var', 'codebook_var', 'confidence', 'notes', 'marked']]
     df2 = df.drop(columns=['study_var', 'codebook_var', 'confidence', 'notes', 'marked']).dropna(axis=1, how='all')
@@ -124,17 +135,21 @@ def download_page():
 
             try:
                 status.text("Loading original data...")
-                original_df = load_study_data(name)
+                original_df = load_study_data(safe_name)
                 progress.progress(1/steps_total)
             except Exception as e:
-                st.error(f"Cannot load original data for study '{name}': {e}")
+                # SECURITY: Log full error but show sanitized message
+                logger.error(f"Cannot load original data for study '{safe_name}': {str(e)}")
+                st.error(f"Cannot load original data for study '{safe_name}'. Check study configuration.")
                 return
             try:
                 status.text("Loading mapping results...")
-                mapping_df = load_mapping(name)
+                mapping_df = load_mapping(safe_name)
                 progress.progress(2/steps_total)
             except Exception as e:
-                st.error(f"Cannot load mapping results for study '{name}': {e}")
+                # SECURITY: Log full error but show sanitized message
+                logger.error(f"Cannot load mapping results for study '{safe_name}': {str(e)}")
+                st.error(f"Cannot load mapping results for study '{safe_name}'. Check study configuration.")
                 return
 
             status.text("Applying transformations...")
@@ -168,14 +183,25 @@ def download_page():
                 summary_txt.extend([f"- {w}" for w in warnings])
             summary_txt_str = "\n".join(summary_txt)
 
+            # SECURITY: Check total size before creating ZIP to prevent memory exhaustion
+            max_zip_size = 100 * 1024 * 1024  # 100MB
+            csv_data = {
+                'original_data.csv': original_df.to_csv(index=False),
+                'transformed_data.csv': transformed_df.to_csv(index=False),
+                'mapping_summary.csv': mapping_summary.to_csv(index=False),
+                'validation_report.txt': validation_report,
+                'summary.txt': summary_txt_str
+            }
+            total_size = sum(len(data.encode('utf-8')) for data in csv_data.values())
+            if total_size > max_zip_size:
+                st.error(f"Export package too large ({total_size/1024/1024:.1f}MB). Maximum: {max_zip_size/1024/1024:.0f}MB")
+                return
+
             # Create ZIP in-memory
             memfile = io.BytesIO()
             with zipfile.ZipFile(memfile, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr('original_data.csv', original_df.to_csv(index=False))
-                zf.writestr('transformed_data.csv', transformed_df.to_csv(index=False))
-                zf.writestr('mapping_summary.csv', mapping_summary.to_csv(index=False))
-                zf.writestr('validation_report.txt', validation_report)
-                zf.writestr('summary.txt', summary_txt_str)
+                for filename, data in csv_data.items():
+                    zf.writestr(filename, data)
             memfile.seek(0)
 
             status.text("Packaging files...")

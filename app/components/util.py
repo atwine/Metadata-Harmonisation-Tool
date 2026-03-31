@@ -8,6 +8,8 @@ from .ai_provider import get_ai_provider_from_session, AIProviderWrapper
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from pathlib import Path
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -135,10 +137,33 @@ def get_ollama_client():
 def delete_files_and_folders(directory_path):
     """
     Delete all files and folders in the specified directory.
+    SECURITY: Only allows deletion within whitelisted directories.
 
     Args:
         directory_path (str): Path to the directory to be cleared.
     """
+    # SECURITY: Whitelist of allowed directories for deletion
+    allowed_dirs = ['input', 'results', 'preprocess', 'logs']
+    
+    # SECURITY: Validate path to prevent directory traversal
+    try:
+        abs_path = Path(directory_path).resolve()
+        base_path = Path.cwd().resolve()
+        
+        # Check if path is within project directory
+        if not str(abs_path).startswith(str(base_path)):
+            print(f"Security: Blocked path traversal attempt: {directory_path}")
+            return
+        
+        # Check if path is in allowed directories
+        rel_path = abs_path.relative_to(base_path)
+        if not any(str(rel_path).startswith(allowed) for allowed in allowed_dirs):
+            print(f"Security: Deletion not allowed for: {directory_path}")
+            return
+    except (ValueError, OSError) as e:
+        print(f"Security: Invalid path blocked: {directory_path} - {str(e)}")
+        return
+    
     if fs.exists(directory_path):
         try:
             files_and_dirs = fs.ls(directory_path)
@@ -159,7 +184,16 @@ def delete_files_and_folders(directory_path):
 def modify_env(key, value=None, delete=False):
     """
     Modify the .env file to add, update, or delete a key-value pair.
+    SECURITY: Validates keys and values to prevent injection attacks.
     """
+    # SECURITY: Validate environment variable key format
+    if not re.match(r'^[A-Z_][A-Z0-9_]*$', key):
+        raise ValueError(f"Invalid environment variable key: {key}")
+    
+    # SECURITY: Validate value doesn't contain newlines (injection risk)
+    if value is not None and '\n' in str(value):
+        raise ValueError("Environment variable value cannot contain newlines")
+    
     if not fs.exists(".env"):
         with open(".env", 'w'):
             pass 
@@ -168,16 +202,16 @@ def modify_env(key, value=None, delete=False):
     if not delete:
         line_replaced = False
         for i in range(len(lines)):
-            if lines[i].startswith(key):
+            # SECURITY: Exact key match to prevent partial matches
+            if lines[i].startswith(key + '='):
                 lines[i] = key + '=' + str(value) + '\n'
                 line_replaced = True
                 break
         if not line_replaced:
             lines.append(key + '=' + str(value) + '\n')
     else:
-        for i in range(len(lines)):
-            if lines[i].startswith(key):
-                lines[i] = ""
+        # SECURITY: Remove only exact key matches
+        lines = [line for line in lines if not line.startswith(key + '=')]
     with open(".env", 'w') as file:
         file.writelines(lines)
 
@@ -187,6 +221,9 @@ def safe_literal_eval(val):
     Returns an empty list if the input is invalid, NaN, or not a string.
     """
     if pd.isna(val) or not isinstance(val, str):
+        return []
+    # SECURITY: Validate string length before deserialization to prevent DoS
+    if len(val) > 10000:
         return []
     try:
         return ast.literal_eval(val)
@@ -226,7 +263,8 @@ def format_example_data(example_data):
     """
     Formats example data for display.
     """
-    example_data = [str(x) for x in list(example_data) if pd.notna(x)]
+    # PERFORMANCE: Remove redundant list() call
+    example_data = [str(x) for x in example_data if pd.notna(x)]
     if len(example_data) >= 5:
         example_data.insert(5, '\n')
     return ' ; '.join(example_data)

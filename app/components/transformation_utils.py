@@ -20,6 +20,9 @@ def generic_catagorical_conversion(x, dictionary_str):
     try:
         # Accept either a dict literal string or a dict object
         if isinstance(dictionary_str, str):
+            # SECURITY: Validate string length before deserialization to prevent DoS
+            if len(dictionary_str) > 10000:
+                return np.nan
             mapping_obj = ast.literal_eval(dictionary_str)
         elif isinstance(dictionary_str, dict):
             mapping_obj = dictionary_str
@@ -71,7 +74,8 @@ def dtype_conversion(x, dtype):
             return bool(x)
         elif dtype == 'other':
             return x
-    except:
+    except (ValueError, TypeError, OverflowError):
+        # Catch specific conversion errors only
         return np.nan
 
 def generic_direct_conversion(x, x_str, source_dtype, target_dtype):

@@ -1,5 +1,7 @@
 import streamlit as st
 import fsspec
+import sys
+import time
 
 from components.upload_codebook import upload_codebook_page
 from components.upload_study import add_study_page
@@ -22,9 +24,34 @@ mapping_options = ['To do',
         'Marked to reconsider',
         'Marked unmappable']
 
-st.set_page_config(layout="wide",
-                   page_title="Mapping Tool"
-                   )
+# SECURITY: Monitor and limit session state size to prevent memory exhaustion
+def check_session_state_size():
+    """Monitor session state size and clean up old data if needed."""
+    try:
+        size = sys.getsizeof(st.session_state)
+        max_size = 50 * 1024 * 1024  # 50MB limit
+        if size > max_size:
+            # Clean up old draft data
+            keys_to_remove = []
+            for key in st.session_state.keys():
+                if 'draft' in key or 'transformation_input' in key or 'last_' in key:
+                    keys_to_remove.append(key)
+            # Remove half of the old keys
+            for key in keys_to_remove[:len(keys_to_remove)//2]:
+                del st.session_state[key]
+    except Exception:
+        pass  # Fail silently to not disrupt user experience
+
+# Run cleanup periodically (every 5 minutes)
+if 'last_cleanup' not in st.session_state or time.time() - st.session_state.get('last_cleanup', 0) > 300:
+    check_session_state_size()
+    st.session_state['last_cleanup'] = time.time()
+
+st.set_page_config(
+    page_title="Metadata Harmonisation Tool",
+    page_icon="",
+    layout="wide"
+)
 
 with st.sidebar:
     st.write("## Mapping App")

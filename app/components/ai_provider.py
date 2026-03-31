@@ -11,6 +11,8 @@ import hashlib
 from typing import List, Dict, Any, Optional, Union
 import sys
 import os
+from collections import deque
+from threading import Lock
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from config import ModelConfig, AIProvider
 import streamlit as st
@@ -42,6 +44,27 @@ class AIProviderWrapper:
         # Default timeout per request (seconds)
         self.request_timeout = getattr(self.config, 'request_timeout', 30) or 30
         
+        # SECURITY: Rate limiting to prevent API quota exhaustion
+        self._rate_limit_window = 60  # seconds
+        self._rate_limit_max_requests = 60  # max requests per window
+        self._request_timestamps = deque()
+        self._rate_limit_lock = Lock()
+        
+    def _check_rate_limit(self):
+        """Check and enforce rate limiting. Raises AIProviderError if limit exceeded."""
+        with self._rate_limit_lock:
+            current_time = time.time()
+            # Remove timestamps outside the current window
+            while self._request_timestamps and self._request_timestamps[0] < current_time - self._rate_limit_window:
+                self._request_timestamps.popleft()
+            
+            # Check if we've exceeded the rate limit
+            if len(self._request_timestamps) >= self._rate_limit_max_requests:
+                raise AIProviderError(f"Rate limit exceeded: {self._rate_limit_max_requests} requests per {self._rate_limit_window} seconds")
+            
+            # Record this request
+            self._request_timestamps.append(current_time)
+    
     def _retry_with_backoff(self, func, *args, **kwargs):
         """
         Execute a function with exponential backoff retry logic.
@@ -57,6 +80,9 @@ class AIProviderWrapper:
         Raises:
             AIProviderError: If all retries fail
         """
+        # SECURITY: Check rate limit before attempting request
+        self._check_rate_limit()
+        
         last_exception = None
         
         for attempt in range(self.max_retries):
@@ -242,13 +268,16 @@ class AIProviderWrapper:
         try:
             result = self._retry_with_backoff(lambda: self._with_timeout(_generate, self.request_timeout))
             monitor.record_embed(success=True)
-            # Cache successful embedding for this session (bounded best-effort)
+            # PERFORMANCE: Cache successful embedding with LRU eviction
             try:
                 _cache = st.session_state.setdefault('embedding_cache', {})
                 if isinstance(_cache, dict):
-                    # Simple safety bound to prevent unbounded session growth
-                    if len(_cache) > 2000:
-                        _cache.clear()
+                    # LRU eviction: remove oldest entry when cache exceeds limit
+                    _max_cache_size = 1000
+                    if len(_cache) >= _max_cache_size:
+                        # Remove oldest entry (first key in dict)
+                        oldest_key = next(iter(_cache))
+                        del _cache[oldest_key]
                     _cache[_cache_key] = result
             except Exception:
                 pass

@@ -45,7 +45,7 @@ def initialise_mapping_recommendations():
     st.divider()
 
     default_init_prompt = "As an AI, you're given the task of translating short variable names from a public health study into the most likely full variable name."
-    init_prompt = st.text_input('Initialisation Prompt', value=config.get('init_prompt', default_init_prompt))
+    init_prompt = st.text_input('Initialisation Prompt', value=config.get('init_prompt', default_init_prompt), max_chars=1000)
     
     if config.get('init_prompt') != init_prompt:
         modify_env('init_prompt', init_prompt)
