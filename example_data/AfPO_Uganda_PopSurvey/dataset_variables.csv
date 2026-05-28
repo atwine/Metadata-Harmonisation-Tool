@@ -1,0 +1,7 @@
+,variable_name,description
+0,resp_id,Respondent number
+1,ethnic_group,Ethnic or population group of respondent
+2,district,District of residence
+3,lang,Main language spoken
+4,edu,Education level attained
+5,work_status,Employment situation

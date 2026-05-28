@@ -1,0 +1,7 @@
+variable_name,description,dType,Unit,Categories,Unit Example
+respondent_id,Unique respondent identifier,string,,,RES001
+ethnicity,Population group or ethnic identity,string,AfPO URI,,AfPO:0000403
+region,Administrative region of residence,string,,,Central
+language_spoken,Primary language spoken at home,string,,,Luganda
+education_level,Highest level of education completed,string,,None; Primary; Secondary; Tertiary,Primary
+employment,Current employment status,string,,Employed; Unemployed; Self-employed,Employed

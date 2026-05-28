@@ -41,3 +41,4 @@ stroke,stroke,string,binary,"positive', 'negative'",positive
 myocardial_infarct,Myocardial Infarction,string,binary,"positive', 'negative'",positive
 malaria,Malaria,string,binary,"positive', 'negative'",positive
 muac,Mid-Upper Arm Circumference,integer ,cm,,18
+ethnicity,Population group or ethnic identity of the participant,string,AfPO URI,,AfPO:0000403

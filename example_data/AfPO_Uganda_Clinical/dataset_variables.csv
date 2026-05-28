@@ -1,0 +1,13 @@
+,variable_name,description
+0,pid,Patient ID number
+1,date_seen,Date patient was seen
+2,gender,Gender of patient (M/F)
+3,age_yrs,Age in years at visit
+4,tribe,Tribe or ethnic group of participant
+5,hiv,HIV result (Pos/Neg)
+6,art,On antiretroviral therapy (Y/N)
+7,sbp,Systolic BP in mmHg
+8,dbp,Diastolic BP in mmHg
+9,wt_kg,Weight in kilograms
+10,ht_cm,Height in centimetres
+11,bmi_calc,Calculated BMI

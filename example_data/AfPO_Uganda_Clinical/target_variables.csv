@@ -1,0 +1,13 @@
+variable_name,description,dType,Unit,Categories,Unit Example
+patient_id,Unique patient identifier,string,,,UG0001
+visit_date,Date of clinical visit,datetime,YYYY-MM-DD,,2024-07-01
+sex,Recorded biological sex,string,,Male; Female,Male
+age,Age at visit in years,integer,years,,34
+ethnicity,Population group or ethnic identity,string,AfPO URI,,AfPO:0000403
+hiv_status,HIV serostatus,string,,Positive; Negative,Negative
+on_art,Currently on ART treatment,string,,Yes; No,Yes
+systolic_bp,Systolic arterial pressure,integer,mmHg,,126
+diastolic_bp,Diastolic arterial pressure,integer,mmHg,,78
+weight,Body weight,float,kg,,72.5
+height,Standing height,float,cm,,171.0
+bmi,Body Mass Index,float,kg/m2,,24.8

@@ -17,6 +17,7 @@ This tool differentiates itself by using Large Language Models to:
 -   **Recommend the most likely target variable** to map to.
 -   **Support the creation and testing** of variable transformation instructions.
 -   **Provide a confidence score** alongside mapping recommendations.
+-   **Map ethnicity/population values to the [African Population Ontology (AfPO)](https://github.com/h3abionet/afpo)**, flag gaps, and submit missing terms directly to the ontology maintainers.
 
 This dramatically speeds up the mapping process.
 
@@ -256,6 +257,17 @@ Once step 1 & 2 have been completed a recommendations algorithm will suggest the
 #### Step 5: Download Mapping Results
 
 Once the mapping process has been completed. Each study that has been fully mapped will be available for download as a .csv file. The mapping result is simply a table mapping each dataset variable name to a corresponding codebook variable name. 
+
+#### Step 4b (Optional): Map Ethnicity / Population Values to AfPO
+
+When a codebook variable whose name contains an ethnicity keyword (`ethnicity`, `population`, `tribe`, `ancestry`, `race`, `ethnic`) is selected on the **Map Studies** page, an AfPO sub-section appears automatically:
+
+1. A text area is pre-filled with the unique values found in the study’s example data for that column (up to 20 values).
+2. Click **“Look up in AfPO”** to run each value through the [African Population Ontology](https://github.com/h3abionet/afpo) lookup engine.
+3. Matched values appear in a green table with AfPO ID, canonical name, match method, and confidence score.
+4. Unmatched values (gaps) are listed individually. Each gap row provides an editable field (correct spelling if needed) and a **“📋 Submit to AfPO”** button that opens a pre-filled GitHub Issue for the ontology maintainers.
+5. All gap lookups are automatically logged to `logs/afpo_gaps.csv` for tracking purposes.
+6. AfPO results (`afpo_values_mapped`, `afpo_values_gaps`) are saved alongside the standard mapping in the results CSV.
 
 ---
 

@@ -3,6 +3,48 @@ All notable changes to this project will be documented in this file.
 
 Format: Keep a Changelog. Versioning: Semantic Versioning.
 
+## [0.5.0] - 2026-05-28
+
+### Added
+
+#### African Population Ontology (AfPO) Integration
+- **AfPO lookup engine** (`app/components/afpo_lookup.py`):
+  - Parses `data/ontologies/afpo-base.obo` once at startup into a flat in-memory lookup table (1,081+ entries).
+  - Extracts canonical names and all four synonym types: alternate people names (`AfPO:0000450`), language names (`AfPO:0000458`), scholarly names (`AfPO:0000453`), and OBO `synonym:` declarations.
+  - Skips GPS coordinates, language family nodes, URLs, and values over 60 characters.
+  - Lookup strategy: exact match (case-insensitive) → fuzzy match via `rapidfuzz` (WRatio, threshold 85) → `None` (gap).
+  - Returns structured result: `afpo_id`, `canonical_name`, `matched_via`, `matched_term`, `confidence`.
+
+- **AfPO gap reporter** (`app/components/afpo_gap_reporter.py`):
+  - Generates pre-filled GitHub Issue URLs for population/ethnicity values absent from AfPO.
+  - Issue pre-populates title, body (with study name and variable name), and `new term` label.
+  - Target: `https://github.com/h3abionet/afpo/issues/new`.
+
+- **AfPO population mapping UI** (Map Studies page, `app/components/map_study.py`):
+  - AfPO sub-section appears automatically when the selected codebook variable contains an ethnicity keyword (`ethnicity`, `ethnic`, `population`, `tribe`, `ancestry`, `race`).
+  - Text area pre-populated with unique values from `example_data.csv` for the selected column (up to 20 values).
+  - “Look up in AfPO” button runs each entered value through the lookup engine and displays a results table (`Input Value | AfPO ID | Canonical Name | Matched Via | Confidence`).
+  - Matched values shown in a “✅ Matched” table.
+  - Unmatched values shown as individual gap rows, each with an editable text field (pre-filled with the raw value, correctable before submitting) and a “📋 Submit to AfPO” button opening a pre-filled GitHub Issue.
+  - All gap buttons are independent — any gap can be submitted in any order; none block the others.
+  - Results persist in session state across Streamlit reruns.
+  - AfPO results saved alongside standard mapping in results CSV: `afpo_values_mapped` (JSON dict) and `afpo_values_gaps` (JSON list).
+
+- **Gap logging** (`logs/afpo_gaps.csv`):
+  - Unmatched values automatically appended to `logs/afpo_gaps.csv` on each lookup run.
+  - Columns: `timestamp`, `study`, `variable_name`, `unmatched_value`, `submitted_to_github`.
+
+- **Codebook update** (`input/target_variables.csv`):
+  - Added `ethnicity` row: `ethnicity, Population group or ethnic identity of the participant, string, AfPO URI,, AfPO:0000403`.
+  - Enables the AI recommendation engine to suggest `ethnicity` for incoming tribe/population columns.
+
+- **New dependency**: `rapidfuzz` added to `requirements.txt`.
+
+- **Test datasets**:
+  - `example_data/AfPO_Uganda_Clinical/` — 522-row clinical dataset with `tribe` column containing 12 matched groups and 21 confirmed AfPO gaps (Jopadhola, Kakwa, Karamojong, Madi, Kumam, Bagwere, Banyamulenge, and more).
+  - `example_data/AfPO_Uganda_PopSurvey/` — 322-row population survey with `ethnic_group` column including fuzzy-match test values (`Aganda`, `Achol`, `Iteso`) and the same 21 gap groups.
+  - Both datasets contain real Ugandan ethnic groups cross-referenced against the AfPO ontology (2024-03-21 release).
+
 ## [0.4.4] - 2026-03-31
 
 ### Security

@@ -34,6 +34,134 @@ mapping_options = ['To do',
 if 'transformation_instructions' not in st.session_state:
     st.session_state.transformation_instructions = {}
 
+# ---------------------------------------------------------------------------
+# AfPO helpers
+# ---------------------------------------------------------------------------
+
+ETHNICITY_KEYWORDS = ["ethnicity", "ethnic", "population", "tribe", "ancestry", "race"]
+
+
+def _log_afpo_gaps(study, variable_name, gaps):
+    """Append unmatched AfPO values to logs/afpo_gaps.csv."""
+    import csv
+    from datetime import datetime, timezone
+    gaps_file = "logs/afpo_gaps.csv"
+    fs.mkdirs("logs", exist_ok=True)
+    file_exists = fs.exists(gaps_file)
+    with fs.open(gaps_file, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["timestamp", "study", "variable_name", "unmatched_value", "submitted_to_github"])
+        for gap in gaps:
+            writer.writerow([
+                datetime.now(timezone.utc).isoformat(),
+                study,
+                variable_name,
+                gap,
+                False,
+            ])
+
+
+def render_afpo_section(study, variable_name, example_data=None):
+    """Render the AfPO population-mapping sub-section inside the mapping UI."""
+    from .afpo_lookup import lookup
+    from .afpo_gap_reporter import build_github_issue_url
+
+    st.divider()
+    st.markdown("#### 🌍 AfPO Population Mapping")
+    st.caption(
+        "This variable appears to contain population or ethnicity data. "
+        "Enter the values found in your dataset to map them to the African Population Ontology (AfPO)."
+    )
+
+    # Pre-populate from example data if available
+    default_values = ""
+    if example_data:
+        unique_vals = list(dict.fromkeys([str(v) for v in example_data if str(v).strip()]))
+        default_values = "\n".join(unique_vals)
+
+    raw_input = st.text_area(
+        "Enter ethnicity/population values found in this column (one per line):",
+        value=default_values,
+        height=150,
+        key=f"afpo_input_{variable_name}",
+    )
+
+    if st.button("🔍 Look up in AfPO", key=f"afpo_lookup_{variable_name}"):
+        values = [v.strip() for v in raw_input.splitlines() if v.strip()]
+        if not values:
+            st.warning("Please enter at least one value to look up.")
+        else:
+            results = []
+            gaps = []
+
+            for val in values:
+                match = lookup(val)
+                if match:
+                    results.append({
+                        "Input Value": val,
+                        "AfPO ID": match["afpo_id"],
+                        "Canonical Name": match["canonical_name"],
+                        "Matched Via": match["matched_via"],
+                        "Confidence": f"{match['confidence']}%",
+                    })
+                else:
+                    results.append({
+                        "Input Value": val,
+                        "AfPO ID": "— Not found in AfPO —",
+                        "Canonical Name": "",
+                        "Matched Via": "",
+                        "Confidence": "",
+                    })
+                    gaps.append(val)
+
+            # Store results in session state so they persist across reruns
+            st.session_state[f"afpo_results_{variable_name}"] = results
+            st.session_state[f"afpo_gaps_{variable_name}"] = gaps
+
+            # Log gaps immediately
+            if gaps:
+                _log_afpo_gaps(study, variable_name, gaps)
+
+    # Render results table if available
+    if f"afpo_results_{variable_name}" in st.session_state:
+        results = st.session_state[f"afpo_results_{variable_name}"]
+
+        matched = [r for r in results if r["AfPO ID"] != "— Not found in AfPO —"]
+        unmatched = [r for r in results if r["AfPO ID"] == "— Not found in AfPO —"]
+
+        if matched:
+            st.markdown("**✅ Matched:**")
+            st.dataframe(pd.DataFrame(matched), use_container_width=True)
+
+        if unmatched:
+            st.markdown("**⚠️ Not found in AfPO — these are gaps:**")
+            st.caption("You can edit the term name below before submitting. Each gap is independent — submit in any order.")
+            for i, gap_row in enumerate(unmatched):
+                val = gap_row["Input Value"]
+                # Unique widget key per gap row so each field is independent
+                edit_key = f"afpo_gap_edit_{variable_name}_{i}"
+                col_a, col_b, col_c = st.columns([2, 2, 1])
+                with col_a:
+                    st.warning(f"`{val}` — not found in AfPO")
+                with col_b:
+                    # Editable field: pre-filled with the raw gap value, user can correct before submitting
+                    edited_val = st.text_input(
+                        "Submit as:",
+                        value=val,
+                        key=edit_key,
+                        label_visibility="collapsed",
+                        help="Edit the term name if needed before opening the GitHub issue",
+                    )
+                with col_c:
+                    url = build_github_issue_url(edited_val.strip() or val, study, variable_name)
+                    st.link_button(
+                        "📋 Submit to AfPO",
+                        url=url,
+                        help="Opens a pre-filled GitHub Issue for the AfPO team to review this term",
+                    )
+
+
 # SECURITY: Sanitize SQL string values to prevent injection
 def _sanitize_sql_string(value):
     """Escape single quotes in SQL string values to prevent injection attacks."""
@@ -99,7 +227,18 @@ def write_to_results(study, variable_to_map, mapped_variable, notes, avail_idx, 
         'patient_id_var': patient_id_var,
         'patient_id_confidence': patient_id_confidence,
         'date_var': date_var,
-        'date_confidence': date_confidence},
+        'date_confidence': date_confidence,
+        # AfPO mapping results (JSON strings); default to empty if no lookup was run
+        'afpo_values_mapped': json.dumps({
+            r['Input Value']: r['AfPO ID']
+            for r in st.session_state.get(f'afpo_results_{variable_to_map}', [])
+            if r['AfPO ID'] != '— Not found in AfPO —'
+        }),
+        'afpo_values_gaps': json.dumps([
+            r['Input Value']
+            for r in st.session_state.get(f'afpo_results_{variable_to_map}', [])
+            if r['AfPO ID'] == '— Not found in AfPO —'
+        ])},
         index=[0])
     st.write('The following has been saved:')
     st.write(df_new)
@@ -361,7 +500,9 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                                                  'marked',
                                                  'patient_id',
                                                  'date',
-                                                 'time'])
+                                                 'time',
+                                                 'afpo_values_mapped',
+                                                 'afpo_values_gaps'])
                 empty_df['study_var'] = all_variables
                 empty_df['marked'] = 'To do'
                 empty_df.to_csv(results_file, index=False)
@@ -494,6 +635,14 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                 mapped_variable = st.selectbox('Does this map to any of these variables?', recommended_keys) # type: ignore
                 # Always compute and show match confidence immediately after selection (independent of transformations)
                 codebook_var, codebook_conf = split_var_confidence(mapped_variable)
+                # AfPO trigger: show population mapping section when codebook var is ethnicity-related
+                is_ethnicity_var = any(kw in codebook_var.lower() for kw in ETHNICITY_KEYWORDS)
+                if is_ethnicity_var:
+                    render_afpo_section(
+                        study,
+                        variable_to_map,
+                        example_data if example_avail else None,
+                    )
                 try:
                     conf_int = int(str(codebook_conf).strip().rstrip('%')) if codebook_conf else 0
                 except Exception:
@@ -574,7 +723,9 @@ def map_study(study, variables_status, show_about, original_order, relational_mo
                             if 'hide_transform_tip' not in st.session_state:
                                 st.session_state['hide_transform_tip'] = False
                             if not st.session_state['hide_transform_tip']:
-                                with st.expander('How do I choose?'):
+                                # Use a container instead of expander; nested expanders are not allowed by Streamlit.
+                                with st.container(border=True):
+                                    st.caption('**How do I choose?**')
                                     st.markdown(
                                         "**When should I use Transform Mode?**\n"
                                         "Use it when the study values need conversion to match the target codebook (units, dtype, or categories).\n\n"
