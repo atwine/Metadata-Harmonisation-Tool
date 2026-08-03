@@ -196,3 +196,6 @@ cython_debug/
 
 
 .DS_store
+
+# Claude Code agent worktrees (tooling state, not project content)
+.claude/

@@ -23,9 +23,29 @@ This dramatically speeds up the mapping process.
 
 ---
 
+## AI Security at a Glance
+
+Your API keys, data, and mapping decisions are handled with the following safeguards. Use the **SAFE** mnemonic to remember them. For the full mapping of threats to safeguards, see [`docs/AI_SECURITY.md`](docs/AI_SECURITY.md).
+
+| Letter | Stands for | What it means in this tool |
+|--------|-----------|---------------------------|
+| **S** | **Secrets stay secret** | API keys are kept in memory only. They are never written to disk, never logged, and never appear in audit trails. |
+| **A** | **Access is controlled** | Rate limiting caps AI calls at 60 per minute; requests time out after 30 seconds; only basic math (`+`, `-`, `*`, `/`) is allowed in transformation formulas. |
+| **F** | **Failures are safe** | Retry logic waits longer between attempts; errors shown in the UI are sanitized so they do not leak paths or keys. |
+| **E** | **Everything is traceable** | Every mapping save is appended to an audit log (`logs/mapping_audit.jsonl`) with operator, timestamp, and before/after values — but no secrets. |
+
+### Quick checklist before sharing or deploying
+
+- [ ] Keep `.env` out of version control (it is already in `.gitignore`).
+- [ ] Do not paste API keys into notebooks, chat logs, or the audit viewer.
+- [ ] Review `logs/mapping_audit.jsonl` to confirm no sensitive values are recorded.
+- [ ] Set `STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=true` in production.
+
+---
+
 ![alt text](image.png)
 
-## 🚀 Quick Start
+## ðŸš€ Quick Start
 
 The easiest way to run the Metadata Harmonisation Tool is with Docker and Docker Compose. This method handles all Python dependencies and configuration for you.
 
@@ -153,7 +173,7 @@ conda activate harmonisation_env
 pip install -r requirements.txt
 
 # Configure the app
-# 1) Copy .env and set OLLAMA_BASE_URL as described above (Quick Start → Step 2)
+# 1) Copy .env and set OLLAMA_BASE_URL as described above (Quick Start â†’ Step 2)
 # 2) If using local Ollama, ensure models are present
 ollama pull llama3.1:8b
 ollama pull nomic-embed-text
@@ -165,7 +185,7 @@ streamlit run app.py
 
 Verify your setup:
 
-- In the sidebar, open "AI Configuration" → run the Connection Test
+- In the sidebar, open "AI Configuration" â†’ run the Connection Test
 - Or via CLI:
 
 ```bash
@@ -174,7 +194,7 @@ python validate_config.py --all-providers
 
 Open http://localhost:8501 in your browser.
 
-## 🚢 Deployment
+## ðŸš¢ Deployment
 
 ### Building the Image
 
@@ -204,7 +224,7 @@ Scripts are provided to simplify pushing the image to Docker Hub.
 
 ---
 
-## 🔧 Development
+## ðŸ”§ Development
 
 ### Configuration Validation
 
@@ -221,7 +241,7 @@ Use the sidebar **AI Configuration** panel:
 
 ---
 
-## ⚙️ General Workflow
+## âš™ï¸ General Workflow
 
 #### Step 1: Upload Target Codebook
 
@@ -262,16 +282,16 @@ Once the mapping process has been completed. Each study that has been fully mapp
 
 When a codebook variable whose name contains an ethnicity keyword (`ethnicity`, `population`, `tribe`, `ancestry`, `race`, `ethnic`) is selected on the **Map Studies** page, an AfPO sub-section appears automatically:
 
-1. A text area is pre-filled with the unique values found in the study’s example data for that column (up to 20 values).
-2. Click **“Look up in AfPO”** to run each value through the [African Population Ontology](https://github.com/h3abionet/afpo) lookup engine.
+1. A text area is pre-filled with the unique values found in the studyâ€™s example data for that column (up to 20 values).
+2. Click **â€œLook up in AfPOâ€** to run each value through the [African Population Ontology](https://github.com/h3abionet/afpo) lookup engine.
 3. Matched values appear in a green table with AfPO ID, canonical name, match method, and confidence score.
-4. Unmatched values (gaps) are listed individually. Each gap row provides an editable field (correct spelling if needed) and a **“📋 Submit to AfPO”** button that opens a pre-filled GitHub Issue for the ontology maintainers.
+4. Unmatched values (gaps) are listed individually. Each gap row provides an editable field (correct spelling if needed) and a **â€œðŸ“‹ Submit to AfPOâ€** button that opens a pre-filled GitHub Issue for the ontology maintainers.
 5. All gap lookups are automatically logged to `logs/afpo_gaps.csv` for tracking purposes.
 6. AfPO results (`afpo_values_mapped`, `afpo_values_gaps`) are saved alongside the standard mapping in the results CSV.
 
 ---
 
-## 💡 How it works
+## ðŸ’¡ How it works
 
 The Metadata Harmonisation Interface comprises two key parts:
 
@@ -281,7 +301,7 @@ The second step is the **ontology recommendation engine**. This again uses text 
 
 ---
 
-## ❓ Troubleshooting
+## â“ Troubleshooting
 
 ### Docker & Ollama Connection
 
@@ -307,14 +327,14 @@ The second step is the **ontology recommendation engine**. This again uses text 
 
 ---
 
-## 🔒 Security notes
+## ðŸ”’ Security notes
 
 - **Direct transformations** are evaluated using a restricted evaluator (simple arithmetic on variable `x` only).
 - **Categorical mappings** are parsed using `ast.literal_eval()` (no `eval()`), and must be Python dict literals.
 
 ---
 
-## 📞 Contact
+## ðŸ“ž Contact
 
 Please report any issues to the GitHub repository. For more information or support, contact:
 - Peter Marsh: `peter.marsh@uct.ac.za`
@@ -322,7 +342,7 @@ Please report any issues to the GitHub repository. For more information or suppo
 
 ---
 
-## 📄 License
+## ðŸ“„ License
 
 This work is licensed under a
 [Creative Commons Attribution-ShareAlike 4.0 International License][cc-by-sa].  [![CC BY-SA 4.0][cc-by-sa-image]][cc-by-sa]
